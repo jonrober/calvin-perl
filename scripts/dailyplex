@@ -85,13 +85,13 @@ for my $directory (@directories) {
             next if $channel[$1];
             $channel{" \0" . $1} = [ $1, $2, 'yesterday' ];
             $channel[$1] = " \0" . $1;
-            $count++ if ($1 != 1 && $1 != 2 && $1 != 29);
+            $count++ if ($1 != 1 && $1 != 2 && $1 != 31);
         } elsif (/- Starting to log channel (\d+) \[(.*)\] at (.*) by/) {
             next if $channel[$1];
             my $start = str2time ($3);
             $channel{$start . "\0" . $1} = [ $1, $2, $start ];
             $channel[$1] = $start . "\0" . $1;
-            $count++ if ($1 != 1 && $1 != 2 && $1 != 29);
+            $count++ if ($1 != 1 && $1 != 2 && $1 != 31);
         } elsif (/- Ending log of channel (\d+) \[.*\] at (.*) by/) {
             next unless $channel[$1];
             push (@{$channel{$channel[$1]}}, str2time ($2));
