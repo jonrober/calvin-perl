@@ -22,12 +22,11 @@ require 5.002;
 
 use Calvin::Client;
 
-use lib '.';
 use strict;
 use vars qw($ID $VERSION $ping_after);
 
-$ID         = '$Id$';
-$VERSION    = (split (' ', $ID))[2];
+$ID      = '$Id$';
+$VERSION = (split (' ', $ID))[2];
 
 # We ping all servers after this much time (in seconds) has passed.  Change
 # it from your program if you wish.  Setting it to 0 would be bad.
@@ -164,14 +163,6 @@ sub run_queue {
 # Private methods
 ############################################################################
 
-# This method exists solely to satisfy -w.  The implementation of min using
-# the tenary operator complains if the values are undef, while this one
-# won't.
-sub min {
-    my ($a, $b) = @_;
-    (not defined $a) ? $b : (not defined $b) ? $a : ($a < $b) ? $a : $b;
-}
-
 # Perform any periodic maintenance we need to do on our clients, such as
 # reseting nicks or pinging servers.  Currently, all we do is send a date
 # command to each live server to ensure that we're still connected.  This is
@@ -209,7 +200,6 @@ sub note_death {
     my ($self, $number) = @_;
     unless ($self->{dead}[$number]) {
 	$self->{dead}[$number] = 1;
-	warn "noted death of client $number\n";
 	$self->enqueue (time + 1, sub { $self->reconnect ($number, 1) });
     }
 }
@@ -223,7 +213,6 @@ sub note_death {
 # about 17 minutes).
 sub reconnect {
     my ($self, $client, $backoff) = @_;
-    warn "attempting reconnect of client $client\n";
     if ($self->{clients}[$client]->connect) {
 	$self->{dead}[$client] = undef;
     } else {
