@@ -9,18 +9,18 @@ $version = '$Id$';
 
 require 5.001;
 
+use lib '.';
 use Calvin::Client;
 use Calvin::Parse;
 use Calvin::Manager;
 
 use strict;
-use vars qw($manager $version);
-
-$manager  = new Calvin::Manager;
+use vars qw($version);
 
 {
+    my $manager = new Calvin::Manager;
     my $client = new Calvin::Client;
-    $client->connect ('eyrie.org', 9090, 'testbot');
+    $client->connect ('eyrie.org', 2035, 'testbot');
     $manager->register ($client);
     $client = new Calvin::Client;
     $client->connect ('eyrie.org', 2056, 'testbot');
