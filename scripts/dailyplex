@@ -79,10 +79,11 @@ for my $directory (@directories) {
 
     # Now scan yesterday's log up until 6am, keeping track of what channels
     # everything is on.
+    next unless (-f $ylog && -f $tlog);
     @ARGV = ($ylog, $tlog);
     my $count = 0;
     while (<>) {
-        if (/^% Channel (\d+): \[(.*)\]$/) {
+        if (/^(?:\#\d+\# )?% Channel (\d+): \[(.*)\]$/) {
             next if $channel[$1];
             $channel{" \0" . $1} = [ $1, $2, 'yesterday' ];
             $channel[$1] = " \0" . $1;
