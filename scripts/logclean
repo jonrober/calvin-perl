@@ -30,7 +30,8 @@ $version = '$Id$';
 #        because it's slightly too smart for its own good.
 
 use Text::Wrap;
-die "Usage: $0 [-s] [<channel>] [<file> ...]\n" if ($ARGV[0] =~ /^-.*h/);
+$0 =~ s%.*/%%;
+die "Usage: $0 [-hvs] [<channel>] [<file> ...]\n" if ($ARGV[0] =~ /^-.*h/);
 die "$0 " . (split (' ', $version))[2] . "\n" if ($ARGV[0] =~ /^-.*v/);
 my $spam = shift if ($ARGV[0] =~ /^-.*s/);
 my $channel = shift if ($ARGV[0] =~ /^\d+$/);
