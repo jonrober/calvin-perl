@@ -9,6 +9,13 @@
 # wrote the original Perl Calvin bot that this module is based on, and
 # provided hints, information, and suggestions throughout its development.
 # Thanks, Jon, for making all of Calvin possible in the first place.
+#
+# "Passions, once in motion, move themselves." -- Unknown
+
+
+############################################################################
+# Modules and declarations
+############################################################################
 
 package Calvin::Manager;
 require 5.002;
@@ -17,14 +24,19 @@ use Calvin::Client;
 
 use lib '.';
 use strict;
-use vars qw($ID $VERSION $TIMEOUT);
+use vars qw($ID $VERSION $ping_after);
 
-$ID      = '$Id$';
-$VERSION = (split (' ', $ID))[2];
-$TIMEOUT = 600;				# Ten minute default timeout.
+$ID         = '$Id$';
+$VERSION    = (split (' ', $ID))[2];
+
+# We ping all servers after this much time (in seconds) has passed.  Change
+# it from your program if you wish.  Setting it to 0 would be bad.
+$ping_after = 10;
 
 
-#############################  Basic Methods  ##############################
+############################################################################
+# Basic methods
+############################################################################
 
 # Create a new Calvin manager object.  Note that you'll almost certainly
 # want to ignore SIGPIPE if you're using this class, but we'll be polite and
@@ -32,14 +44,14 @@ $TIMEOUT = 600;				# Ten minute default timeout.
 sub new {
     my $class = shift;
     my $self = {
-	client   => 0,		# Initialize fairness pointer.
-	timer    => time,	# For periodic maintenance.
-	clients  => [],		# Initialize anonymous arrays.
-        deadtime => [],
-        deadback => []
+	client  => 0,		# Initialize fairness pointer.
+	clients => [],		# Array of managed clients.
+	dead    => [],		# Which clients are currently dead.
+	queue   => []		# Queue of events.
     };
     bless ($self, $class);
-    return $self;
+    $self->enqueue (time + $ping_after, sub { $self->periodic });
+    $self;
 }
 
 # Register a new Calvin::Client with the server.  We maintain an array which
@@ -55,68 +67,123 @@ sub register {
     unless ($client->connected) {
 	$self->note_death ($#{$self->{clients}});
     }
-
-    1;
 }
 
 # Perform a select on all managed file handles until we get data on one of
 # them, and then return the client object for which there is data.  To
 # ensure fairness, we keep track of which client we returned last (as an
 # index into the clients array) and increment it, and then start our search
-# from there next time.  We take an optional timeout and fall back on the
-# default if one is not provided.
+# from there next time.  We take an optional timeout; if one isn't
+# specified, we wait until we have a hit (potentially forever).  Note that
+# we timeout our own select() at the time when the next event queue event is
+# scheduled to run, and just stay in a loop until our timeout has expired.
 sub select {
-    my ($self, $timeout) = @_;
+    my ($self, $delay) = @_;
 
-    # Determine our timeout.
-    unless ($timeout) { $timeout = $TIMEOUT }
+    # Determine when we should time out and return to the caller.
+    my $return = defined $delay ? time + $delay : undef;
 
-    # Perform the actual select.
-    my $rin = $self->build_vector;
-    my $rout;
-    my $nbits = select ($rout = $rin, undef, undef, $timeout);
+    # Determine when the next event in the event queue is scheduled to run
+    # (and run the queue while we're at it.
+    my $next = $self->run_queue;
 
-    # Now check the resulting vector.  If we have a hit, figure out which
-    # client caused the hit and return it.  The mod arithmetic on number is
-    # somewhat ugly.
-    my $number = $self->{client};
-    my $client;
-    if ($nbits > 0) {
-	until (vec ($rout, $self->{clients}[$number]->connected, 1)) {
+    # Our select timeout is determined by the smaller of our calling timeout
+    # (determined above) and the time for the next queue event run.
+    # Continue doing selects and timing out to do queue runs until our
+    # calling timeout expires or we have a hit from select, but do the
+    # select at least once no matter what happens.
+    do {
+	my $stop = (!defined $return) ? $next   :
+	           (!defined $next)   ? $return :
+		   ($next < $return)  ? $next   : $return;
+	my $timeout = (defined $stop) ? $stop - time : undef;
+	$timeout = 0 if (defined $timeout && $timeout < 0);
+
+	# Perform the actual select.
+	my $rin = $self->build_vector;
+	my $rout;
+	my $nbits = select ($rout = $rin, undef, undef, $timeout);
+
+	# Now check the resulting vector.  If we have a hit, figure out
+	# which client caused the hit and return it.  The mod arithmetic on
+	# number is somewhat ugly.
+	my $client;
+	if ($nbits > 0) {
+	    my $number = $self->{client};
+	    until (vec ($rout, $self->{clients}[$number]->connected, 1)) {
+		$number = ($number + 1) % @{$self->{clients}};
+	    }
+	    $client = $self->{clients}[$number];
 	    $number = ($number + 1) % @{$self->{clients}};
+	    $self->{client} = $number;
 	}
-	$client = $self->{clients}[$number];
-	$number = ($number + 1) % @{$self->{clients}};
-	$self->{client} = $number;
-    }
 
-    # Check through our list of dead clients and see if we need to reconnect
-    # any of them.
-    $self->reconnect;
+	# Run the queue again, getting the time for the new next scheduled
+	# event.
+	$next = $self->run_queue;
 
-    # Check to see if we've passed our internal timeout period, and if so
-    # perform periodic maintenance.  Note that because of the way timeouts
-    # are handled, it's possible to go 2 * $TIMEOUT before running
-    # periodic.
-    if (time > $self->{timer} + $TIMEOUT) { $self->periodic }
+	# New return the $client if we had a hit.
+	return $client if defined $client;
+    } until (defined $return && time >= $return);
 
-    # Now return the $client we found or undef if we timed out.
-    $client;
+    # We timed out without getting a hit from any client, so return undef.
+    undef;
 }
 
 
-############################  Private Methods  #############################
+############################################################################
+# Event queue methods
+############################################################################
+
+# Add an event to our event queue.  Each event is in the form of a timestamp
+# (when it should happen) and a closure (what should happen).  We maintain
+# the queue in sorted order by timestamp.  We just tack the new event on to
+# the end and sort rather than messing with a binary insertion, since the
+# time difference probably won't be that much.
+sub enqueue {
+    my ($self, $time, $action) = @_;
+    push (@{$self->{queue}}, [$time, $action]);
+    @{$self->{queue}} = sort { $$a[0] <=> $$b[0] } @{$self->{queue}};
+}
+
+# Run the queue by removing and executing every closure whose time has
+# arrived.  The current time is passed to each closure as an argument, in
+# case the closure wants to use it.
+sub run_queue {
+    my ($self) = @_;
+    my $event;
+    while (defined $self->{queue}[0] && $self->{queue}[0][0] <= time) {
+	$event = shift @{$self->{queue}};
+	&{$event->[1]} (time);
+    }
+    defined $self->{queue}[0] ? $self->{queue}[0][0] : undef;
+}
+
+
+############################################################################
+# Private methods
+############################################################################
+
+# This method exists solely to satisfy -w.  The implementation of min using
+# the tenary operator complains if the values are undef, while this one
+# won't.
+sub min {
+    my ($a, $b) = @_;
+    (not defined $a) ? $b : (not defined $b) ? $a : ($a < $b) ? $a : $b;
+}
 
 # Perform any periodic maintenance we need to do on our clients, such as
 # reseting nicks or pinging servers.  Currently, all we do is send a date
-# command to each live server to ensure that we're still connected.
+# command to each live server to ensure that we're still connected.  This is
+# run from the event queue and adds itself back onto the queue after each
+# execution.
 sub periodic {
     my ($self) = @_;
     my $client;
     for $client (@{$self->{clients}}) {
 	$client->date if $client->connected;
     }
-    $self->{timer} = time;
+    $self->enqueue (time + $ping_after, sub { $self->periodic });
 }
 
 # Build an input vector for all of the live clients.  Takes an array of
@@ -132,45 +199,45 @@ sub build_vector {
 	    $self->note_death ($count);
 	}
     }
-    return $vector;
+    $vector;
 }
 
-# Add a client by number to the list of dead clients and add the associated
-# time values.  We store two arrays for the dead clients, one which has the
-# time to the next reconnect attempt, and one which stores the exponentially
-# increasing backoff delay.
+# If we note the death of a client we didn't already know was dead, mark it
+# as such (so as not to do this multiple times) and then add a reconnect
+# attempt to the event queue.
 sub note_death {
     my ($self, $number) = @_;
-    unless ($self->{deadtime}[$number]) {
-	$self->{deadtime}[$number] = time + 1;
-	$self->{deadback}[$number] = 1;
+    unless ($self->{dead}[$number]) {
+	$self->{dead}[$number] = 1;
+	warn "noted death of client $number\n";
+	$self->enqueue (time + 1, sub { $self->reconnect ($number, 1) });
     }
 }
 
 # Attempt to reconnect each dead client whose reconnect time has passed,
 # using exponential backoff to increase the reconnect time each time
-# connection fails.
+# connection fails.  Takes the number of the dead client and the current
+# backoff value as arguments.  This function is designed to be run from the
+# event queue, and if reconnection fails will add itself back into the event
+# queue with an exponentially increasing timeout (maximum of 1024 seconds or
+# about 17 minutes).
 sub reconnect {
-    my ($self) = @_;
-    my ($count, $deadtime);
-    for $count (0..$#{$self->{clients}}) {
-	undef $deadtime;
-	if ($self->{deadtime}[$count]) {
-	    $deadtime = $self->{deadtime}[$count];
-	}
-	if ($deadtime && $deadtime < time) {
-	    if ($self->{clients}[$count]->connect) {
-		$self->{deadtime}[$count] = undef;
-	    } else {
-		my $backoff = ($self->{deadback}[$count] *= 2);
-		$self->{deadtime}[$count] = $backoff + time;
-	    }
-	}
+    my ($self, $client, $backoff) = @_;
+    warn "attempting reconnect of client $client\n";
+    if ($self->{clients}[$client]->connect) {
+	$self->{dead}[$client] = undef;
+    } else {
+	$backoff *= 2;
+	$backoff = 1024 if ($backoff > 1024);
+	my $event = sub { $self->reconnect ($client, $backoff) };
+	$self->enqueue (time + $backoff, $event);
     }
 }
 
 
-##########################  Module Return Value  ###########################
+############################################################################
+# Module return value
+############################################################################
 
 # Ensure we evaluate to true.
 1;
