@@ -9,6 +9,14 @@
 # wrote the original Perl Calvin bot that this module is based on, and
 # provided hints, information, and suggestions throughout its development.
 # Thanks, Jon, for making all of Calvin possible in the first place.
+#
+# "The greatest good you can do for another is not just to share your riches
+# but to reveal to him his own." -- Benjamin Disraeli
+
+
+############################################################################
+# Modules and declarations
+############################################################################
 
 package Calvin::Client;
 require 5.002;
@@ -26,10 +34,12 @@ use vars qw(@ISA $ID $VERSION $BUFFER_SIZE $TIMEOUT);
 $ID          = '$Id$';
 $VERSION     = (split (' ', $ID))[2];
 $BUFFER_SIZE = 256;
-$TIMEOUT     = 60;		# 1 minute timeout on read and write.
+$TIMEOUT     = 60;		# One minute timeout on read and write.
 
 
-#############################  Basic Methods  ##############################
+############################################################################
+# Basic methods
+############################################################################
 
 # Create a new Calvin interface object.  We won't connect in the constructor
 # just in case there's a reason to keep a disconnected Calvin::Client object
@@ -81,7 +91,7 @@ sub connect {
 	# welcoming "you are now known as" message.  If we see "nickname in
 	# use", we need to call $fallback to change the nick and try again.
 	# Otherwise if we don't have a fallback or if we lost our
-	# connection, return undef.  Finally, if we've succeeded, return 1.
+	# connection, return undef.
 	$buf = $self->read;
 	if (!defined $buf) {
 	    $self->shutdown;
@@ -109,12 +119,13 @@ sub shutdown {
 	close $self->{fh};
 	delete $self->{fh};
     }
-    $self->{'buffer'} = "";
+    $self->{buffer} = "";
 }
 
 # Read a line from the chatserver and try to parse it, returning a parsed
 # array in the form documented in Calvin::Parse, or in scalar context, just
-# return the message type.
+# return the message type.  The parse method is inherited from
+# Calvin::Parse.
 sub read {
     my ($self) = @_;
 
@@ -130,7 +141,9 @@ sub read {
 }
 
 
-#############################  Basic Commands  #############################
+############################################################################
+# Basic commands
+############################################################################
 
 # Join a channel (and then immediately join 16 again, since a client
 # shouldn't have a default channel to allow easier parsing of server
@@ -172,7 +185,7 @@ sub date {
 # Send a message to ourselves, so that we'll register with the server.
 sub hello {
     my ($self) = @_;
-    $self->msg ($self->{nick}, '.');
+    $self->msg ($self->{nick}, '');
 }
 
 # Send a quit command.  Note that this method doesn't also shut down the
@@ -185,7 +198,9 @@ sub quit {
 }
 
 
-###########################  State Information  ############################
+############################################################################
+# State information
+############################################################################
 
 # Return the file number of our socket if we're connected to a server, undef
 # if not.  This is the access routine commonly used to get the file number
@@ -196,7 +211,9 @@ sub connected {
 }
 
 
-################################  Raw I/O  #################################
+############################################################################
+# Raw I/O
+############################################################################
 
 # Read from the file descriptor into the passed buffer until encountering
 # the passed delimiter.  If no delimiter is given, assume "\n".  The
@@ -235,7 +252,7 @@ sub raw_read {
 
 	# Actually do the read.  If we don't get any data, we saw an end of
 	# file, and we need to close down this connection.
-	$status = sysread ($self->{'fh'}, $tmpbuf, $BUFFER_SIZE);
+	$status = sysread ($self->{fh}, $tmpbuf, $BUFFER_SIZE);
 	unless ($status) {
 	    $self->shutdown;
 	    return undef;
@@ -284,7 +301,9 @@ sub raw_send {
 }
 
 
-############################  Private Methods  #############################
+############################################################################
+# Private methods
+############################################################################
 
 # The default nick fallback function.  It appends a 1 to the end of the nick
 # if the nick doesn't end in a number, and otherwise adds one to the number.
@@ -324,7 +343,9 @@ sub tcp_connect {
 }
 
 
-##########################  Module Return Value  ###########################
+############################################################################
+# Module return value
+############################################################################
 
 # Ensure we evaluate to true.
 1;
