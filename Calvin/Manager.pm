@@ -64,7 +64,7 @@ sub register {
     # Enter the new client into our array.  Note that the client may be dead
     # from the very start, in which case we also want to note its death.
     push (@{$self->{clients}}, $client);
-    unless ($client->connected) {
+    unless (defined $client->connected) {
 	$self->note_death ($#{$self->{clients}});
     }
 }
@@ -173,7 +173,7 @@ sub periodic {
     my ($self) = @_;
     my $client;
     for $client (@{$self->{clients}}) {
-	$client->date if $client->connected;
+	$client->date if defined $client->connected;
     }
     $self->enqueue (time + $ping_after, sub { $self->periodic });
 }
@@ -185,7 +185,7 @@ sub build_vector {
     my $vector = '';
     my ($count, $fileno);
     for $count (0..$#{$self->{clients}}) {
-	if ($fileno = $self->{clients}[$count]->connected) {
+	if (defined ($fileno = $self->{clients}[$count]->connected)) {
 	    vec ($vector, $fileno, 1) = 1;
 	} else {
 	    $self->note_death ($count);
