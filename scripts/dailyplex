@@ -24,7 +24,7 @@ $version = q$Id$;
 
 # Address to which to mail the results.  If this is empty, or if we're given
 # the -p flag, we'll print the results to stdout instead.
-$address = 'complex@eyrie.org';
+$address = 'complex@lists.eyrie.org';
 
 # Who the log scan should be fron.
 $from = 'Automated Log Scan <eagle@eyrie.org>';
