@@ -36,7 +36,7 @@ $calvin = new Calvin::Client;	# Global Calvin client object.
 	    # addressed to us which don't begin with "- ".
 	    my ($code, $user, $message);
 	    while (($code, $user, $message) = $calvin->read) {
-		next unless ($code == &C_WHIS);
+		next unless ($code == C_WHIS);
 		next if ($user eq $nick);
 		next if ($message =~ /^- /);
 
@@ -116,7 +116,7 @@ sub send_types {
 
     opendir (DIR, $root) or return undef;
     my @types = sort grep { ! /^\./ && -d "$root/$_" && -r _ } readdir(DIR);
-    $calvin->msg ($user, "Description types:  @chars");
+    $calvin->msg ($user, "Description types:  @types");
 }
 
 # Send help.
