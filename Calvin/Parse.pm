@@ -3,8 +3,8 @@
 # Copyright 1996 by Russ Allbery <rra@cs.stanford.edu>
 # This program is free software; you can redistribute it and/or modify it
 # under the same terms as Perl itself.
-# 
-# This module owes its existence to Jon Lennox <jon@cs.columbia.edu>, who
+#
+# This module owes its existence to Jon Lennox <lennox@cs.columbia.edu>, who
 # wrote the Calvin chatserver that this module is designed to connect to,
 # wrote the original Perl Calvin bot that this module is based on, and
 # provided hints, information, and suggestions throughout its development.
@@ -14,13 +14,54 @@ package Calvin::Parse;
 require 5.002;
 
 use strict;
-use vars qw(@ISA $ID $VERSION);
+use vars qw(@ISA @EXPORT $ID $VERSION);
 
 require Exporter;
 @ISA = qw(Exporter);
 
 $ID          = '$Id$';
 $VERSION     = (split (' ', $ID))[2];
+
+@EXPORT = qw(C_PUBLIC C_POSE C_ROLL C_YELL C_YELL_POSE C_YELL_ROLL
+             C_WHIS C_WHIS_POSE C_WHIS_ROLL
+             C_CONNECT C_JOIN C_LEAVE C_NICKCHANGE C_SIGNOFF
+             C_E_NICK_USE C_E_NICK_LONG C_E_NICK_INVALID
+             C_S_NICK
+             C_UNKNOWN);
+
+
+###############################  Constants  ################################
+
+# Public channel messages.
+sub C_PUBLIC         { 1 }	# Regular public channel messages.
+sub C_POSE           { 2 }	# Public poses.
+sub C_ROLL           { 3 }	# Public rolls.
+sub C_YELL           { 4 }	# Regular yells.
+sub C_YELL_POSE      { 5 }	# Yelled poses.
+sub C_YELL_ROLL      { 6 }	# Yelled rolls.
+
+# Private messages.
+sub C_WHIS           { 100 }	# Private whispers.
+sub C_WHIS_POSE      { 101 }	# Whispered poses.
+sub C_WHIS_ROLL      { 102 }	# Whispered rolls.
+
+# Server messages.
+sub C_CONNECT        { 200 }	# Connected to the chatserver.
+sub C_JOIN           { 201 }	# Joined channel.
+sub C_LEAVE          { 202 }	# Left channel.
+sub C_NICKCHANGE     { 203 }	# Changed nick.
+sub C_SIGNOFF        { 204 }	# Left the chatserver.
+
+# Error messages.
+sub C_E_NICK_LONG    { 1000 }	# Nick too long.
+sub C_E_NICK_USE     { 1001 }	# Nick already in use.
+sub C_E_NICK_INVALID { 1002 }	# Invalid nick.
+
+# Status messages.
+sub C_S_NICK         { 2000 }	# Initial response to nick setting.
+
+# Unknown messages.
+sub C_UNKNOWN        { 0000 }	# Unknown message.
 
 
 ##############################  Main Routine  ##############################
@@ -54,6 +95,7 @@ $VERSION     = (split (' ', $ID))[2];
 #	C_UNKNOWN, message
 #
 sub parse {
+    my $self = shift;
     local ($_) = @_;
     my (@r);
 
