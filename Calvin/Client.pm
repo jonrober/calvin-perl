@@ -22,19 +22,19 @@ package Calvin::Client;
 require 5.002;
 
 use Calvin::Parse;
-use Fcntl;
-use FileHandle;
-use Socket;
+use IO::Handle;
+use Socket qw(inet_aton sockaddr_in PF_INET SOCK_STREAM);
+use Fcntl qw(F_SETFL O_NONBLOCK);
 
 use strict;
 use vars qw(@ISA $ID $VERSION $BUFFER_SIZE $TIMEOUT);
 
 @ISA = qw(Calvin::Parse);
 
-$ID          = '$Id$';
-$VERSION     = (split (' ', $ID))[2];
-$BUFFER_SIZE = 256;
-$TIMEOUT     = 60;		# One minute timeout on read and write.
+ $ID          = '$Id$';
+($VERSION     = (split (' ', $ID))[2]) =~ s/\.(\d)$/.0$1/;
+ $BUFFER_SIZE = 256;
+ $TIMEOUT     = 60;		# One minute timeout on read and write.
 
 
 ############################################################################
@@ -46,18 +46,16 @@ $TIMEOUT     = 60;		# One minute timeout on read and write.
 # around.
 sub new {
     my $class = shift;
-    my $self = {};
+    my $self = {buffer => ""};
     bless ($self, $class);
-    $self->{buffer} = "";	# Kill warning messages.
     return $self;
 }
 
-# Connect to a Calvin chatserver.  Note that currently you have to have a
-# nick fallback; if you don't supply one, the default will be used.  Ideally
-# this should be changed to allow no fallback if you really want that.  If
-# the client has already been initialized and we're reconnecting, connect
-# can be called with no arguments, or with partial arguments to override the
-# default values.
+# Connect to a Calvin chatserver.  If the fourth argument (the nick
+# fallback), is a false but defined value, no fallback is used, and if the
+# default nick is taken connection will fail.  If the client has already
+# been initialized and we're reconnecting, connect can be called with no
+# arguments, or with partial arguments to override the default values.
 sub connect {
     my ($self, $host, $port, $nick, $fallback) = @_;
 
@@ -68,12 +66,14 @@ sub connect {
     $self->{port}     = $port if $port;
     $self->{nick}     = $nick if $nick;
     $self->{fallback} = $self->{fallback} || $fallback;
-    unless ($self->{fallback}) {
+    unless (defined $self->{fallback}) {
 	$self->{fallback} = sub { $_[0] =~ s/(\d*)$/"0$1" + 1/e }
     }
 
-    # Ensure that we have a fully-specified connection.
-    if (!$self->{host} || !$self->{port} || !$self->{nick}) { return undef }
+    # Throw an exception of the connection isn't fully defined.
+    if (not defined $self->{host}) { die "No host defined" }
+    if (not defined $self->{port}) { die "No port defined" }
+    if (not defined $self->{nick}) { die "No nick defined" }
     
     # Open connection.
     $self->tcp_connect ($self->{host}, $self->{port}) or return undef;
@@ -226,13 +226,10 @@ sub connected {
 sub raw_read {
     my ($self, $buf, $delim) = @_;
     my $tmpbuf = '';
-    my $status;
 
-    # Make sure our passed parameters are okay, and choose a delimiter to
-    # look for.
+    # Check our passed parameters and choose a delimiter to look for.
     unless ($buf) { return undef }
     unless (defined $delim) { $delim = "\n" }
-    $delim = quotemeta $delim;
 
     # Make sure we're connected.
     unless ($self->{fh}) { return undef }
@@ -244,7 +241,7 @@ sub raw_read {
     # we see the delimiter or we lose the connection.  Because our socket is
     # non-blocking, we need to select on our file number to make sure there
     # is data there waiting for us.
-    while ($self->{buffer} !~ /$delim/) {
+    while (index ($self->{buffer}, $delim) == -1) {
 	my $rin = '';
 	my $rout;
 	vec ($rin, $self->{fh}->fileno, 1) = 1;
@@ -257,8 +254,7 @@ sub raw_read {
 
 	# Actually do the read.  If we don't get any data, we saw an end of
 	# file, and we need to close down this connection.
-	$status = sysread ($self->{fh}, $tmpbuf, $BUFFER_SIZE);
-	unless ($status) {
+	unless (sysread ($self->{fh}, $tmpbuf, $BUFFER_SIZE)) {
 	    $self->shutdown;
 	    return undef;
 	}
@@ -266,7 +262,7 @@ sub raw_read {
     }
 
     # Split out the data we want to actually return and do so.
-    ($tmpbuf, $self->{buffer}) = split (/$delim/, $self->{buffer}, 2);
+    ($tmpbuf, $self->{buffer}) = split ($delim, $self->{buffer}, 2);
     $$buf = $tmpbuf;
     1;
 }
@@ -315,18 +311,18 @@ sub raw_send {
 # ourselves.
 sub tcp_connect {
     my ($self, $host, $port) = @_;
-    unless ($host && $port) { return undef }
+    unless (defined $host && defined $port) { return undef }
 
     # If the port isn't numeric, look it up.  If that fails, we fail.
-    if ($port =~ /\D/) { $port = getservbyname ($port, 'tcp') }
-    unless ($port)     { return undef }
+    if ($port =~ /\D/)     { $port = getservbyname ($port, 'tcp') }
+    unless (defined $port) { return undef }
 
     # Look up the IP address of the remote host, create a socket, and try to
     # connect.
     my $iaddr = inet_aton ($host)                  or return undef;
     my $paddr = sockaddr_in ($port, $iaddr);
     my $proto = getprotobyname ('tcp')             or return undef;
-    my $socket = new FileHandle;
+    my $socket = new IO::Handle;
     socket ($socket, PF_INET, SOCK_STREAM, $proto) or return undef;
     connect ($socket, $paddr)                      or return undef;
 
