@@ -16,8 +16,8 @@ use vars qw($calvin $version);
 $calvin = new Calvin::Client;	# Global Calvin client object.
 
 {
-    my $host  = shift || 'cain.cs.columbia.edu';
-    my $port  = shift || 5302;
+    my $host  = shift || 'mork.cs.columbia.edu';
+    my $port  = shift || 9090;
     my $nick  = shift || 'desc';
     my $retry = 1;
     my $root  = '/ftp/pub/complex/descs';
@@ -56,6 +56,15 @@ $calvin = new Calvin::Client;	# Global Calvin client object.
 			&send_list ($user, "$root/$type");
 		    } else {
 			$calvin->msg ($user, "Unknown type $type");
+		    }
+		} elsif ($message =~ /^player\s+(\S+)(?:\s+(\S+))?/i) {
+		    my ($char, $type) = ($1, $2);
+		    ($type = lc $2) =~ tr%/%%d if $2;
+		    $type = 'default' unless $type;
+		    if (-r "$root/$type/$char" && -f _) {
+			&send_author ($user, "$root/$type/$char");
+		    } else {
+			$calvin->msg ($user, "Unknown character $char");
 		    }
 		} else {
 		    my ($char, $type) = ($message =~ /^\s*(\S+)(?:\s+(\S+))?/);
@@ -100,6 +109,18 @@ sub send_file {
     $calvin->msg ($user, $desc);
 }
 
+# Send the name of the author of a character.
+sub send_author {
+    my ($user, $file) = @_;
+    my $uid = (stat $file)[4];
+    my ($account, $name) = (getpwuid ($uid))[0,6];
+
+    if ($account) {
+	$calvin->msg ($user, "$name <$account\@eyrie.org>");
+    } else {
+	$calvin->msg ($user, "Invalid owner: $uid $account");
+    }
+}
 
 # Send a directory listing of characters.
 sub send_list {
