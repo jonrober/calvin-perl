@@ -7,7 +7,7 @@ $version = '$Id$';
 # This program is free software; you can redistribute it and/or modify it
 # under the same terms as Perl itself.
 #
-# Usage: logclean [-hvs] [<channel>] [<file> ...]
+# Usage: logclean [-hvsm] [<channel>] [<file> ...]
 #
 #        This script is designed to clean up Cambot logs and tf logs for
 #        either reading or posting.  By default, it cleans them up for
@@ -26,22 +26,27 @@ $version = '$Id$';
 #        command line, or no files at all; if no files are specified,
 #        logclean reads from stdin.
 #
+#        If the -m flag is used, private messages are stripped out of the
+#        log; otherwise, they are passed through unaltered.
+#
 #        logclean cannot handle the first filename being entirely numeric
 #        because it's slightly too smart for its own good.
 
 use Text::Wrap;
 $0 =~ s%.*/%%;
-die "Usage: $0 [-hvs] [<channel>] [<file> ...]\n" if ($ARGV[0] =~ /^-.*h/);
+die "Usage: $0 [-hvsm] [<channel>] [<file> ...]\n" if ($ARGV[0] =~ /^-.*h/);
 die "$0 " . (split (' ', $version))[2] . "\n" if ($ARGV[0] =~ /^-.*v/);
 my $spam = shift if ($ARGV[0] =~ /^-.*s/);
+my $message = shift if ($ARGV[0] =~ /^-.*m/);
 my $channel = shift if ($ARGV[0] =~ /^\d+$/);
 while (<>) {
     next if (/^\*{3}/);
     next if (/^CC: Log/);
-    next if (/^<(\d+): /     && $1 != $channel);
-    next if (/^\* (\d+): /   && $1 != $channel);
-    next if (/^\{(\d+): /    && $1 != $channel);
-    next if (/^\* \{(\d+): / && $1 != $channel);
+    next if (defined $channel && /^<(\d+): /     && $1 != $channel);
+    next if (defined $channel && /^\* (\d+): /   && $1 != $channel);
+    next if (defined $channel && /^\{(\d+): /    && $1 != $channel);
+    next if (defined $channel && /^\* \{(\d+): / && $1 != $channel);
+    next if (defined $message && /^(\*\S|->)/);
     tr/\r//d;
     if ($spam) {
 	s/^<(?:\d+: )?\S+> \[(.*)\]$/[$1]/;
