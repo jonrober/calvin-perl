@@ -30,12 +30,15 @@ use vars qw(@ISA @EXPORT %EXPORT_TAGS $VERSION);
 use Exporter ();
 @ISA         = qw(Exporter);
 @EXPORT      = ();
-%EXPORT_TAGS = (constants => [qw(C_PUBLIC C_POSE C_ROLL
-                                 C_YELL C_YELL_POSE C_YELL_ROLL
-                                 C_WHIS C_WHIS_POSE C_WHIS_ROLL
+%EXPORT_TAGS = (constants => [qw(C_PUBLIC C_POSE C_PPOSE C_ROLL C_NARRATE
+                                 C_ALIAS C_ALIAS_POSE C_ALIAS_PPOSE
+                                 C_YELL C_YELL_POSE C_YELL_PPOSE C_YELL_ROLL
+                                 C_YELL_NARR
+                                 C_WHIS C_WHIS_POSE C_WHIS_PPOSE C_WHIS_ROLL
+                                 C_WHIS_NARR
                                  C_CONNECT C_SIGNOFF C_JOIN C_LEAVE
-                                 C_NICK C_TOPIC
-                                 C_S_NICK C_S_TOPIC C_S_TIME
+                                 C_NICK_CHANGE C_TOPIC_CHANGE
+                                 C_S_NICK C_S_TOPIC C_S_TIME C_S_USERS
                                  C_S_LIST_HEAD C_S_LA_HEAD C_S_LIST
                                  C_E_NICK_USE C_E_NICK_LONG C_E_NICK_BAD
                                  C_E_USER_BAD
@@ -50,39 +53,49 @@ Exporter::export_ok_tags ('constants');
 ############################################################################
 
 # Public channel messages.
-sub C_PUBLIC         {    1 }   # Regular public channel messages.
-sub C_POSE           {    2 }   # Public poses.
-sub C_ROLL           {    3 }   # Public rolls.
-sub C_YELL           {    4 }   # Regular yells.
-sub C_YELL_POSE      {    5 }   # Yelled poses.
-sub C_YELL_ROLL      {    6 }   # Yelled rolls.
+sub C_PUBLIC         { 1021 }   # Regular public channel messages.
+sub C_POSE           { 1022 }   # Public poses.
+sub C_PPOSE          { 1023 }   # Public pposes.
+sub C_ROLL           { 1024 }   # Public rolls.
+sub C_NARRATE        { 1025 }   # Public narrate.
+sub C_ALIAS          { 1026 }   # Public alias.
+sub C_ALIAS_POSE     { 1027 }   # Public posed alias.
+sub C_ALIAS_PPOSE    { 1028 }   # Public pposed alias.
+sub C_YELL           { 1201 }   # Regular yells.
+sub C_YELL_POSE      { 1202 }   # Yelled poses.
+sub C_YELL_PPOSE     { 1203 }   # Yelled pposes.
+sub C_YELL_ROLL      { 1204 }   # Yelled rolls.
+sub C_YELL_NARR      { 1205 }   # Yelled narration.
 
 # Private messages.
-sub C_WHIS           {  100 }   # Private whispers.
-sub C_WHIS_POSE      {  101 }   # Whispered poses.
-sub C_WHIS_ROLL      {  102 }   # Whispered rolls.
+sub C_WHIS           { 1101 }   # Private whispers.
+sub C_WHIS_POSE      { 1102 }   # Whispered poses.
+sub C_WHIS_PPOSE     { 1103 }   # Whispered poses.
+sub C_WHIS_ROLL      { 1104 }   # Whispered rolls.
+sub C_WHIS_NARR      { 1105 }   # Whispered narration.
 
 # Server messages.
-sub C_CONNECT        {  200 }   # Connected to the chatserver.
-sub C_SIGNOFF        {  201 }   # Left the chatserver.
-sub C_JOIN           {  202 }   # Joined channel.
-sub C_LEAVE          {  203 }   # Left channel.
-sub C_NICK           {  204 }   # Changed nick.
-sub C_TOPIC          {  205 }   # Changed a channel topic.
+sub C_CONNECT        { 2001 }   # Connected to the chatserver.
+sub C_SIGNOFF        { 2002 }   # Left the chatserver.
+sub C_LEAVE          { 2003 }   # Left channel.
+sub C_JOIN           { 2004 }   # Joined channel.
+sub C_TOPIC_CHANGE   { 2102 }   # Changed a channel topic.
+sub C_NICK_CHANGE    { 3204 }   # Changed nick.
 
 # Error messages.
-sub C_E_NICK_LONG    { 1000 }   # Nick too long.
-sub C_E_NICK_USE     { 1001 }   # Nick already in use.
-sub C_E_NICK_BAD     { 1002 }   # Invalid nick.
-sub C_E_USER_BAD     { 1003 }   # Attempted operation on nonexistent user.
+sub C_E_USER_BAD     { 9101 }   # Attempted operation on nonexistent user.
+sub C_E_NICK_USE     { 9306 }   # Nick already in use.
+sub C_E_NICK_LONG    { 9307 }   # Nick too long.
+sub C_E_NICK_BAD     { 9308 }   # Invalid nick.
 
 # Status messages.
-sub C_S_NICK         { 2000 }   # Initial response to nick setting.
-sub C_S_TOPIC        { 2001 }   # Current channel topic.
-sub C_S_TIME         { 2002 }   # The current time.
-sub C_S_LIST_HEAD    { 2003 }   # Header for a channel user list.
-sub C_S_LA_HEAD      { 2004 }   # Header for chatserver user list.
-sub C_S_LIST         { 2005 }   # Single user in a list.
+sub C_S_TOPIC        { 2101 }   # Current channel topic.
+sub C_S_NICK         { 3203 }   # Initial response to nick setting.
+sub C_S_LIST_HEAD    { 4101 }   # Header for a channel user list.
+sub C_S_LA_HEAD      { 4102 }   # Header for chatserver user list.
+sub C_S_LIST         { 4103 }   # Single user in a list.
+sub C_S_USERS        { 4201 }   # @u listing.
+sub C_S_TIME         { 4401 }   # The current time.
 
 # Unknown messages.
 sub C_UNKNOWN        {    0 }   # Unknown message.
@@ -96,7 +109,8 @@ sub C_UNKNOWN        {    0 }   # Unknown message.
 # following forms if successful:
 #
 #       C_PUBLIC, on_channel, channel, user, message
-#       C_POSE, on_channel, channel, message
+#       C_POSE, on_channel, channel, user, message
+#       C_PPOSE, on_channel, channel, user, message
 #       C_ROLL, on_channel, channel, user, roll
 #       C_YELL, user, message
 #       C_YELL_POSE, message
@@ -111,8 +125,8 @@ sub C_UNKNOWN        {    0 }   # Unknown message.
 #       C_SIGNOFF, nick, reason, date
 #       C_JOIN, user, channel, topic
 #       C_LEAVE, user, channel, topic
-#       C_NICK, olduser, newuser
-#       C_TOPIC, user, channel, topic
+#       C_NICK_CHANGE, olduser, newuser
+#       C_TOPIC_CHANGE, user, channel, topic
 #
 #       C_E_NICK_BAD, nick
 #       C_E_NICK_LONG, nick
@@ -128,54 +142,125 @@ sub C_UNKNOWN        {    0 }   # Unknown message.
 #
 #       C_UNKNOWN, message
 #
+
+sub set {
+    my ($line, $code, $find, $on_channel) = @_;
+    my (%fields);
+
+    $fields{'code'} = $code;
+    if (defined $on_channel) { $fields{'on_channel'} = $on_channel }
+
+    if (defined $find) {
+        if ($find =~ /c/) {
+            $line =~ s/\|c(\d+)\|E/$1/;
+            $fields{'channel'} = $1;
+        }
+        if ($find =~ /C/) { 
+            $line =~ s/\|C(.*?)\|E/$1/;
+            $fields{'chans_on'} = $1;
+        }
+        if ($find =~ /n/) {
+            $line =~ s/\|n(.*?)\|E/$1/;
+            $fields{'name'} = $1;
+        }
+        if ($find =~ /d/) { 
+            $line =~ s/\|d(.*?)\|E/$1/;
+            $fields{'date'} = $1;
+        }
+        if ($find =~ /t/) { 
+            $line =~ s/\|t(.*?)\|E/$1/;
+            $fields{'topic'} = $1;
+        }
+        if ($find =~ /A/) { 
+            $line =~ s/\|A(\S+?)\|E/$1/;
+            $fields{'address'} = $1;
+        }
+        if ($find =~ /i/) { 
+            $line =~ s/\|i(.*?)\|E/$1/;
+            $fields{'idle'} = $1;
+        }
+        if ($find =~ /I/) { 
+            $line =~ s/\|I(.*?)\|E/$1/;
+            $fields{'idle_chan'} = $1;
+        }
+        if ($find =~ /1/) { 
+            $line =~ s/\|1(.*?)\|E/$1/;
+            $fields{'s1'} = $1;
+        }
+        if ($find =~ /2/) { 
+            $line =~ s/\|2(.*?)\|E/$1/;
+            $fields{'s2'} = $1;
+        }
+    }
+    $fields{'line'} = $line;
+
+    foreach (keys %fields) {
+        if (defined $fields{$_}) {
+            $fields{$_} =~ s#\\1#\\#g;
+            $fields{$_} =~ s#\\2#|#g;
+        }
+    }
+
+    return (%fields);
+}
+
 sub parse {
     local ($_) = @_;
-    my @r;
-    sub set {
-        @r = map { defined $_ ? $_ : () } ($_[0], $_[1], $1, $2, $3, $4);
-    }
 
     # Strip off trailing line terminators, if any.
     s/[\r\n]+$//;
 
+    my (%fields);
+    
     # Try to parse it.
-    if    (/^<(\d+): (\S+)> (.*)/)                   { set (C_PUBLIC,1)    }
-    elsif (/^[(\d+): (\S+)] (.*)/)                   { set (C_PUBLIC,0)    }
-    elsif (/^\* (\d+): (.*)/)                        { set (C_POSE,1)      }
-    elsif (/^\* [(\d+): (.*)]$/)                     { set (C_POSE,0)      }
-    elsif (/^\#\# (\d+): (\S+) \S+ (.*)/)            { set (C_ROLL,1)      }
-    elsif (/^\#\# [(\d+): (\S+) \S+ (.*)]/)          { set (C_ROLL,0)      }
-    elsif (/^[yell: (\S+)] (.*)/)                    { set (C_YELL)        }
-    elsif (/^\* [yell: (.*)]$/)                      { set (C_YELL_POSE)   }
-    elsif (/^\#\# [yell: (\S+) \S+ (.*)]/)           { set (C_YELL_ROLL)   }
-    elsif (/^\*([^* ]|\S{2,})\* (.*)/)               { set (C_WHIS,0)      }
-    elsif (/^-> \*(\S+)\* (.*)/)                     { set (C_WHIS,1)      }
-    elsif (/^\*> (.*)/)                              { set (C_WHIS_POSE,0) }
-    elsif (/^\* -> (\S+): (.*)/)                     { set (C_WHIS_POSE,1) }
-    elsif (/^\#\#> (\S+) \S+ (.*)/)                  { set (C_WHIS_ROLL,0) }
-    elsif (/^\#\# -> (\S+): \S+ \S+ (.*)/)           { set (C_WHIS_ROLL,1) }
-    elsif (/^\*{3} Invalid nickname \"(.*)\".$/)     { set (C_E_NICK_BAD)  }
-    elsif (/^\*{3} Nickname \"(\S+)\" too long/)     { set (C_E_NICK_LONG) }
-    elsif (/^\*{3} Nickname \"(\S+)\" in use/)       { set (C_E_NICK_USE)  }
-    elsif (/^\*{3} Unknown user (\S+)\./)            { set (C_E_USER_BAD)  }
-    elsif (/^\*{3} You are now known as (\S+)\./)    { set (C_S_NICK)      }
-    elsif (/^\*{3} Topic for channel (\d+): (.*)/)   { set (C_S_TOPIC)     }
-    elsif (/^\*{3} It is currently (\S+)\./)         { set (C_S_TIME)      }
-    elsif (/^\*{3} \S+ users on \S+ (\d) \[(.*)\]:/) { set (C_S_LIST_HEAD) }
-    elsif (/^\*{3} \S+ users on the chatserver:/)    { set (C_S_LA_HEAD)   }
-    elsif (/^\*{3} (\S+) connected at (.*) from (\S+)\./) { set(C_CONNECT) }
-    elsif (/^\*{3} Signoff: (\S+) \((.*)\) at (.*)\./)    { set(C_SIGNOFF) }
-    elsif (/^\*{3} (\S+) has joined \S+ (\d+) \[(.*)\]\./){ set(C_JOIN)    }
-    elsif (/^\*{3} (\S+) has left \S+ (\d+) \[(.*)\]\./)  { set(C_LEAVE)   }
-    elsif (/^\*{3} (\S+) is now known as (\S+)\./)        { set(C_NICK)    }
-    elsif (/^\*{3} (\S+) .+? topic on \S+ (\d+) to (.*)/) { set(C_TOPIC)   }
-    elsif (/^\*{3} (\S+)\s+\[idle\s+(\S+)\] <ch. ((?:\d+ ?)+)> (\S+)/)
-                                                     { set (C_S_LIST)      }
-    else                                             { set (C_UNKNOWN, $_) }
+    if    (s/^1021 //) { %fields = &set ($_, C_PUBLIC,      'cn1', 1) }
+    elsif (s/^1031 //) { %fields = &set ($_, C_PUBLIC,      'cn1', 0) }
+    elsif (s/^1024 //) { %fields = &set ($_, C_ROLL,        'cn1', 1) }
+    elsif (s/^1034 //) { %fields = &set ($_, C_ROLL,        'cn1', 0) }
+    elsif (s/^1022 //) { %fields = &set ($_, C_POSE,        'cn1', 1) }
+    elsif (s/^1032 //) { %fields = &set ($_, C_POSE,        'cn1', 0) }
+    elsif (s/^1023 //) { %fields = &set ($_, C_PPOSE,       'cn1', 1) }
+    elsif (s/^1033 //) { %fields = &set ($_, C_PPOSE,       'cn1', 0) }
+    elsif (s/^1025 //) { %fields = &set ($_, C_NARRATE,     'cn1', 1) }
+    elsif (s/^1035 //) { %fields = &set ($_, C_NARRATE,     'cn1', 0) }
+    elsif (s/^1026 //) { %fields = &set ($_, C_ALIAS,       'cn12')   }
+    elsif (s/^1027 //) { %fields = &set ($_, C_ALIAS_POSE,  'cn12')   }
+    elsif (s/^1028 //) { %fields = &set ($_, C_ALIAS_PPOSE, 'cn12')   }
+    elsif (s/^1201 //) { %fields = &set ($_, C_YELL,        'n1')     }
+    elsif (s/^1202 //) { %fields = &set ($_, C_YELL_POSE,   'n1')     }
+    elsif (s/^1203 //) { %fields = &set ($_, C_YELL_PPOSE,  'n1')     }
+    elsif (s/^1204 //) { %fields = &set ($_, C_YELL_ROLL,   'n1')     }
+    elsif (s/^1205 //) { %fields = &set ($_, C_YELL_NARR,   'n1')     }
+    elsif (s/^1101 //) { %fields = &set ($_, C_WHIS,        'n1',  1) }
+    elsif (s/^1111 //) { %fields = &set ($_, C_WHIS,        'n1',  0) }
+    elsif (s/^1102 //) { %fields = &set ($_, C_WHIS_POSE,   'n12', 1) }
+    elsif (s/^1112 //) { %fields = &set ($_, C_WHIS_POSE,   'n1',  0) }
+    elsif (s/^1103 //) { %fields = &set ($_, C_WHIS_PPOSE,  'n12', 1) }
+    elsif (s/^1113 //) { %fields = &set ($_, C_WHIS_PPOSE,  'n1',  0) }
+    elsif (s/^1104 //) { %fields = &set ($_, C_WHIS_ROLL,   'n12', 1) }
+    elsif (s/^1114 //) { %fields = &set ($_, C_WHIS_ROLL,   'n1',  0) }
+    elsif (s/^1105 //) { %fields = &set ($_, C_WHIS_NARR,   'n12', 1) }
+    elsif (s/^1115 //) { %fields = &set ($_, C_WHIS_NARR,   'n1',  0) }
+    elsif (s/^2001 //) { %fields = &set ($_, C_CONNECT,     'ndA')    }
+    elsif (s/^2002 //) { %fields = &set ($_, C_SIGNOFF,     'nd1')    }
+    elsif (s/^2003 //) { %fields = &set ($_, C_LEAVE,       'nct')    }
+    elsif (s/^2004 //) { %fields = &set ($_, C_JOIN,        'nct')    }
+    elsif (s/^2101 //) { %fields = &set ($_, C_S_TOPIC,     'ct')     }
+    elsif (s/^2102 //) { %fields = &set ($_, C_TOPIC_CHANGE,'nct')    }
+    elsif (s/^3203 //) { %fields = &set ($_, C_S_NICK,      'n')      }
+    elsif (s/^3204 //) { %fields = &set ($_, C_NICK_CHANGE, 'n1')     }
+    elsif (s/^4101 //) { %fields = &set ($_, C_S_LIST_HEAD, 'ct')     }
+    elsif (s/^4102 //) { %fields = &set ($_, C_S_LA_HEAD,   '')       }
+    elsif (s/^4103 //) { %fields = &set ($_, C_S_LIST,      'niC')    }
+    elsif (s/^4201 //) { %fields = &set ($_, C_S_USERS,     'cI1')    }
+    elsif (s/^4401 //) { %fields = &set ($_, C_S_TIME,      'd')      }
+    elsif (s/^9101 //) { %fields = &set ($_, C_E_USER_BAD,  '1')      }
+    elsif (s/^9306 //) { %fields = &set ($_, C_E_NICK_USE,  '1')      }
+    elsif (s/^9307 //) { %fields = &set ($_, C_E_NICK_LONG, '1')      }
+    elsif (s/^9308 //) { %fields = &set ($_, C_E_NICK_BAD,  '1')      }
+    else               { %fields = &set ($_, C_UNKNOWN,     '')       }
 
-    # Return the status code in a scalar context, everything in an array
-    # context.
-    wantarray ? @r : $r[0];
+    return (%fields);
 }
 
 

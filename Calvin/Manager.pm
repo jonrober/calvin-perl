@@ -131,6 +131,14 @@ sub select {
 }
 
 
+# List the clients a manager is serving.
+# XXX: check for dead clients.
+sub managed_clients {
+    my($manager) = @_;
+
+    return(@{$manager->{clients}});
+}
+
 ############################################################################
 # Event queue methods
 ############################################################################
