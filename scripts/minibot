@@ -1,0 +1,38 @@
+#!/usr/bin/perl -w
+$version = '$Id$';
+#
+# testbot -- A very small Calvin bot designed to test new modules.
+#            Copyright 1996 by Russ Allbery <rra@cs.stanford.edu>
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the same terms as Perl itself.
+
+require 5.001;
+
+use Calvin::Client;
+use Calvin::Parse;
+use Calvin::Manager;
+
+use strict;
+use vars qw($manager $version);
+
+$manager  = new Calvin::Manager;
+
+{
+    my $client = new Calvin::Client;
+    $client->connect ('eyrie.org', 9090, 'testbot');
+    $manager->register ($client);
+    $client = new Calvin::Client;
+    $client->connect ('eyrie.org', 2056, 'testbot');
+    $manager->register ($client);
+
+    while (1) {
+	$client = $manager->select;
+	next unless $client;
+	my ($code, $user, $message) = $client->read;
+	warn "found $code $user\n" if $code;
+	if ($code && $code == C_WHIS && $message !~ /^- /) {
+	    $client->msg ($user, 'pong');
+	}
+    }
+}
