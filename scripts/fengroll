@@ -1,0 +1,187 @@
+#!/usr/local/bin/perl
+
+# A simple 'bot to connect to the Calvin Chatserver, and ping a user every n
+# minutes.  Written 'cos of Sabre's connectivity problems.
+
+use FileHandle;
+use Socket;
+
+my($host, # The host to connect to, defaults to calvin.cs.columbia.edu.
+   $port, # The port to connect to, defaults to 2035
+   $reconnect_wait, # The number of seconds to wait until a reconnect 
+                    # for exponential backoff.
+
+   $nickbase,    # The default name of the bot
+   $nicknum,     # If not 1, the number to append to $nickbase to get an
+                 # unused name.
+   $nick,        # The actual name in use.
+   @queue,       # A list of [ name, time ] pairs representing pending
+                 # pings, sorted by time.
+   %targets,     # An associative array of ping intervals (in seconds) for
+                 # each user.
+
+   $c,       # A character read from the server.
+   $line,    # A line read from the server.
+   $user,    # If the line read from the server was a /whis, its sender.
+   $message, # If the line read from the server was a /whis, its contents.
+   $interval # If the line read was a ping request, the interval (in
+             # minutes) requested.
+   );
+
+$host = shift() || "eyrie.org";
+$port = shift() || 2056;
+$reconnect_wait = 1;
+
+$nickbase = "FR";
+$nicknum = 1;
+
+srand ($$ ^ time);
+
+# Loop forever, there's no reason for the 'bot to ever quit except by manual
+# intervention
+while ( 1 ) {
+    if( tcp_connect(CALVIN, $host, $port) ) {
+      CONNECTED: {
+	SIGNON: {
+	    # Unfortunately, the nick prompt doesn't end in a \n, so we
+	    # can't use the standard Perl idioms here.  Fortunately, it
+            # *does* end in a recognizable sequence -- the Telnet GA
+	    # sequence 0xff 0xf9.
+	    
+	    do {
+		$c = getc(CALVIN);
+	    } while (defined($c) && $c ne "\xff");
+
+	    # If we've dropped or we see some Telnet code other than GA,
+            # something weird is going on, so drop and cycle.
+	    if (!defined($c) || ($c = getc(CALVIN)) ne "\xf9") {
+		last CONNECTED;
+	    }
+
+	    # We've now gotten the nick prompt.  We send the nick, followed
+	    # by a /msg to ourself, to a) make ourselves visible on the
+	    # server, and b) ensure that we get at least one line
+	    if ($nicknum == 1) { $nick = $nickbase }
+	    else { $nick = $nickbase . $nicknum }
+	    print(CALVIN "$nick\n");
+	    print(CALVIN "/whisper $nick - Ready\n");
+
+	    # If we see "Nickname in use", increment $nicknum and scan again
+	    # for a nick prompt.  Otherwise, unless we've dropped we're
+	    # connected, so go on ahead to the main loop.
+	    if (($line = <CALVIN>) =~ /^\*\*\* Nickname "$nick" in use./) {
+		$nicknum++;
+		redo SIGNON;
+	    } elsif (!defined($line)) {	last CONNECTED }
+	    else { last SIGNON }
+	}
+	  print (CALVIN "/join 4\n");
+	  # The actual guts of the bot.  Now, finally, we can use normal
+	  # Perl line-scanning semantics.
+	  while(<CALVIN>) {
+	      # A received /whis; Of the form "*User* message"
+	      # Make sure we don't match system messages: "*** Message"
+	      if (/^\*([^* ]|[^ ]{2,})\* (.*)/) {
+		  $user = $1;
+		  $message = $2;
+		  # Never answer a message from ourselves.
+		  if ($user eq $nick) { next }
+		  if ($message =~ /^help/i) {
+		      # A request for help
+		      print(CALVIN 
+"/msg $user - Send \"ROLL\" to make a public Feng Shui die roll\n");
+		  } elsif ($message =~ /^(f)?roll(\s+([+-]\d+)+)?/i) {
+		      $fortune = $1 ? 1 : 0;
+		      $pluses = $2;
+		      @pluses = /([+-]\d+)/g;
+		      my (@d1, @d2, $except, $reroll, $extra, $total);
+		      do {
+			  undef $reroll;
+			  push (@d1, int (rand (6)) + 1);
+			  push (@d2, int (rand (6)) + 1);
+			  if ($d1[$#d1] == 6 && $d2[$#d2] == 6) {
+			      $except += 1;
+			      $reroll = 1;
+			  } elsif ($d1[$#d1] == 6) {
+			      do {
+				  $extra = int (rand (6)) + 1;
+				  push (@d1, $extra);
+			      } while ($extra == 6);
+			  } elsif ($d2[$#d2] == 6) {
+			      do {
+				  $extra = int (rand (6)) + 1;
+				  push (@d2, $extra);
+			      } while ($extra == 6);
+			  }
+		      } while ($reroll);
+		      map { $total += $_ } @d1;
+		      map { $total -= $_ } @d2;
+		      map { $total += $_ } @pluses;
+		      if ($fortune) {
+			  $fortune = int (rand (6)) + 1;
+			  $total += $fortune;
+		      }
+		      $total = "+$total" if ($total > 0);
+		      $total = " 0" if ($total == 0);
+		      $cmsg = $except ? ' (exceptional)' : '';
+		      if ($fortune) {
+			  print CALVIN
+			      "$user rolled $total$cmsg (+@d1, -@d2) " .
+				  "(Fortune +$fortune) @pluses\n";
+		      } else {
+			  print CALVIN
+			      "$user rolled $total$cmsg (+@d1, -@d2) " .
+				  "@pluses\n";
+		      }
+		  } elsif ($message =~ /^quit/) {
+		      print CALVIN "/quit Exiting at ${user}'s request\n";
+		      close CALVIN;
+		      exit;
+		  # By convention, messages from bots start with "- ".
+		  # Ignore them always.
+		  } elsif ($message =~ /^- /) { }
+                  else {
+		      # Something else.
+		      print(CALVIN "/msg $user - I don't understand.\n");
+		  }
+	      }
+	  } continue {
+	      # For debugging, uncomment this line.
+	      # print(STDERR);
+	  }
+      }
+	# When we reach this point, we've had a read return undef.
+	close(CALVIN);
+
+	# Reset the various "keep-trying-to-connect" variables.
+	$reconnect_wait = 1;
+	$nicknum = 1;
+    }
+    # Wait a bit before trying to reconnect.
+    sleep($reconnect_wait);
+    # Exponential backoff in the waiting time, up to ~15 minutes
+    if ($reconnect_wait < 1024) { $reconnect_wait *= 2 }
+}
+
+# Slightly modified from code in the perlipc man page.  See there for
+# explanations for most of it; my changes mostly consist of changing "die()"
+# to "return undef".
+sub tcp_connect {
+    my ($socket, $remote, $port, $iaddr, $paddr, $proto);
+    $socket  = shift;
+    $remote  = shift || 'localhost';
+    $port    = shift || 23;  # telnet
+    if ($port =~ /\D/) { $port = getservbyname($port, 'tcp') }
+    if (!$port) { return undef }                 # No port
+    $iaddr = inet_aton($remote) || return undef; # No host
+    $paddr = sockaddr_in($port, $iaddr);
+
+    $proto   = getprotobyname('tcp');
+    socket($socket, PF_INET, SOCK_STREAM, $proto)  || return undef;
+    connect($socket, $paddr)    || return undef;
+    # We don't want to buffer output to the server, since we need to respond
+    # to it...
+    $socket->autoflush();
+    return 1;
+}
+    
