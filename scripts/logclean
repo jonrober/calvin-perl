@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+$version = '$Id$';
+#
+# logclean -- Cleans up a Calvin log for reading or for spamming.
+#             Copyright 1997 by Russ Allbery <rra@cs.stanford.edu>
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the same terms as Perl itself.
+#
+# Usage: logclean [-hvs] [<channel>] [<file> ...]
+#
+#        This script is designed to clean up Cambot logs and tf logs for
+#        either reading or posting.  By default, it cleans them up for
+#        reading, rewriting all messages into "<nick>" and "* nick" format,
+#        stripping out all server messages, cleaning off calvinhelps bracket
+#        channeling rewriting, and wrapping each line of text.  If given the
+#        -s option, it cleans logs for spamming, rewriting everything into
+#        bracket channel syntax and not wrapping the lines.  The resulting
+#        log can be spammed using TinyFugue's "/quote 'file" command.
+#
+#        By default, all channel numbers are stripped.  If there are
+#        multiple channels in the original, the distinctions between the
+#        channels are lost.  If this isn't the desired behavior, specify a
+#        channel number on the command line and logclean will extract only
+#        the messages on that channel.  Multiple files can be given on the
+#        command line, or no files at all; if no files are specified,
+#        logclean reads from stdin.
+#
+#        logclean cannot handle the first filename being entirely numeric
+#        because it's slightly too smart for its own good.
+
+use Text::Wrap;
+die "Usage: $0 [-s] [<channel>] [<file> ...]\n" if ($ARGV[0] =~ /^-.*h/);
+die "$0 " . (split (' ', $version))[2] . "\n" if ($ARGV[0] =~ /^-.*v/);
+my $spam = shift if ($ARGV[0] =~ /^-.*s/);
+my $channel = shift if ($ARGV[0] =~ /^\d+$/);
+while (<>) {
+    next if (/^\*{3}/);
+    next if (/^<(\d+): /     && $1 != $channel);
+    next if (/^\* (\d+): /   && $1 != $channel);
+    next if (/^\{(\d+): /    && $1 != $channel);
+    next if (/^\* \{(\d+): / && $1 != $channel);
+    if ($spam) {
+	s/^<(?:\d+: )?\S+> \[(.*)\]$/[$1]/;
+	s/^<(?:\d+: )?\S+> \[([^\]]+)\]/[$1]/;
+	s/^\{(?:\d+: )?(.*?)\} (.*) <\S+>$/[$1] $2/;
+	s/^\* \{(?:\d+: )?(.*)\} <\S+>$/[$1]/;
+	s/^<(?:\d+: )?(\S+)>/[$1]/;
+	s/^\* (?:\d+: )?(.*)/[$1]/;
+    } else {
+	s/^<(?:\d+: )?\S+> \[(.*)\]$/* $1/;
+	s/^<(?:\d+: )?\S+> \[([^\]]+)\]/<$1>/;
+	s/^<\d+: /</;
+	s/^\* \d+:/*/;
+	s/^\{(?:\d+: )?(.*?)\} (.*) <\S+>$/<$1> $2/;
+	s/^\* \{(?:\d+: )?(.*)\} <\S+>$/* $1/;
+	eval { $_ = wrap ("", "", $_) };
+    }
+    print;
+}
