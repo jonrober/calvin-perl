@@ -48,6 +48,7 @@ sub new {
     my $class = shift;
     my $self = {};
     bless ($self, $class);
+    warn "heya\n";
     $self->{buffer} = "";	# Kill warning messages.
     return $self;
 }
@@ -61,11 +62,16 @@ sub new {
 sub connect {
     my ($self, $host, $port, $nick, $fallback) = @_;
 
-    # Initialize class variables for this connection.
+    # Initialize class variables for this connection.  The default fallback
+    # function, used if one isn't supplied, just adds "1" to the end of the
+    # nick or increments a trailing number if there already is one.
     $self->{host}     = $host if $host;
     $self->{port}     = $port if $port;
     $self->{nick}     = $nick if $nick;
-    $self->{fallback} = $self->{fallback} || $fallback || \&fallback;
+    $self->{fallback} = $self->{fallback} || $fallback;
+    unless ($self->{fallback}) {
+	$self->{fallback} = sub { $_[0] =~ s/(\d*)$/"0$1" + 1/e }
+    }
 
     # Ensure that we have a fully-specified connection.
     if (!$self->{host} || !$self->{port} || !$self->{nick}) { return undef }
@@ -85,7 +91,7 @@ sub connect {
 	}
 
 	# We now have a nick prompt.  Send the nick.
-	$self->raw_send ("$self->{'nick'}\n");
+	$self->raw_send ("$self->{nick}\n");
 
 	# We should now see either the "nickname in use" message or the
 	# welcoming "you are now known as" message.  If we see "nickname in
@@ -98,7 +104,7 @@ sub connect {
 	    return undef;
 	} elsif ($buf != C_S_NICK) {
 	    if ($self->{fallback}) {
-		$self->{nick} = &{$self->{fallback}} ($self->{nick});
+		&{$self->{fallback}} ($self->{nick});
 		redo;
 	    } else {
 		undef;
@@ -254,6 +260,7 @@ sub raw_read {
 	# file, and we need to close down this connection.
 	$status = sysread ($self->{fh}, $tmpbuf, $BUFFER_SIZE);
 	unless ($status) {
+	    warn "$status from sysread\n";
 	    $self->shutdown;
 	    return undef;
 	}
@@ -304,14 +311,6 @@ sub raw_send {
 ############################################################################
 # Private methods
 ############################################################################
-
-# The default nick fallback function.  It appends a 1 to the end of the nick
-# if the nick doesn't end in a number, and otherwise adds one to the number.
-sub fallback {
-    my ($nick) = @_;
-    $nick =~ s/(\d+)$/$1 + 1/e;
-    $nick;
-}
 
 # Open a TCP connection.  We really should use LWP, but I'd prefer not to
 # have these modules dependent on it, and this is easy enough to do
