@@ -14,7 +14,8 @@ $version = q$Id$;
 # A list of directories to check for current log files.  We'll look at
 # yesterday's log starting at 6am and summarize channels used through 6am in
 # today's log.
-@directories = qw(/calvin/logs/complex/windlord /calvin/logs/complex/mork);
+@directories = qw(/calvin/logs/complex/windlord /calvin/logs/complex/mork
+                  /calvin/logs/fkids/windlord /calvin/logs/fkids/mork);
 
 # Address to which to mail the results.  If this is empty, or if we're given
 # the -p flag, we'll print the results to stdout instead.
@@ -62,6 +63,7 @@ if ($address) {
 # We'll check each directory on the list in turn for logs in the right
 # timeframe.  We'll be storing the current tag for a channel, the start
 # time, and the stop time in a hash called %channel.
+my ($channel, $startnice, $stopnice, $topic);
 for my $directory (@directories) {
     my (%channel, @channel);
     
@@ -83,13 +85,13 @@ for my $directory (@directories) {
             next if $channel[$1];
             $channel{" \0" . $1} = [ $1, $2, 'yesterday' ];
             $channel[$1] = " \0" . $1;
-            $count++ if ($1 < 1 || $1 > 2);
+            $count++ if ($1 != 1 && $1 != 2 && $1 != 15);
         } elsif (/- Starting to log channel (\d+) \[(.*)\] at (.*) by/) {
             next if $channel[$1];
             my $start = str2time ($3);
             $channel{$start . "\0" . $1} = [ $1, $2, $start ];
             $channel[$1] = $start . "\0" . $1;
-            $count++ if ($1 < 1 || $1 > 2);
+            $count++ if ($1 != 1 && $1 != 2 && $1 != 15);
         } elsif (/- Ending log of channel (\d+) \[.*\] at (.*) by/) {
             next unless $channel[$1];
             push (@{$channel{$channel[$1]}}, str2time ($2));
@@ -99,17 +101,18 @@ for my $directory (@directories) {
 
     # If we found any channels, print out the results.
     next unless $count;
-    my ($server) = ($directory =~ m%([^/]+)$%);
+    my ($server) = ($directory =~ m%([^/]+/[^/]+)$%);
     my $startcut = str2time ("6:00am $yesterday");
     my $stopcut = str2time ("6:00am $today");
     print OUT "On $server:\n\n";
     for (sort keys %channel) {
-        my ($channel, $topic, $start, $stop) = @{$channel{$_}};
+        my ($start, $stop);
+        ($channel, $topic, $start, $stop) = @{$channel{$_}};
+        $channel = '/' . $channel;
         next if ($stop && $stop < $startcut);
         next if ($start > $stopcut && $start ne 'yesterday');
-        my ($startnice, $stopnice);
         if ($start eq 'yesterday') {
-            $startnice = '  ---  ';
+            $startnice = '---';
         } else {
             $startnice = lc strftime ('%I:%M%p', localtime $start);
             $startnice =~ s/^0/ /;
@@ -118,11 +121,16 @@ for my $directory (@directories) {
             $stopnice = lc strftime ('%I:%M%p', localtime $stop);
             $stopnice =~ s/^0/ /;
         } else {
-            $stopnice = '  ---  ';
+            $stopnice = '---';
         }
-        print OUT '    ';
-        print OUT ' ' if ($channel < 10);
-        print OUT "/$channel ($startnice to $stopnice) $topic\n";
+        write OUT;
     }
     print OUT "\n\n";
 }
+
+format OUT =
+    @>> (@|||||| to @||||||) ^<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+$channel, $startnice, $stopnice, $topic
+                           ~~^<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                                 $topic
+.
