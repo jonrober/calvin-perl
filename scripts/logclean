@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-$version = '$Id$';
+$ID = q$Id$;
 #
 # logclean -- Cleans up a Calvin log for reading or for spamming.
 #             Copyright 1997 by Russ Allbery <rra@cs.stanford.edu>
@@ -34,20 +34,32 @@ $version = '$Id$';
 
 use Text::Wrap;
 $0 =~ s%.*/%%;
-die "Usage: $0 [-hvsm] [<channel>] [<file> ...]\n" if ($ARGV[0] =~ /^-.*h/);
+die "Usage: $0 [-hvspm] [<channel>] [<file> ...]\n" if ($ARGV[0] =~ /^-.*h/);
 die "$0 " . (split (' ', $version))[2] . "\n" if ($ARGV[0] =~ /^-.*v/);
-my $spam = shift if ($ARGV[0] =~ /^-.*s/);
-my $message = shift if ($ARGV[0] =~ /^-.*m/);
-my $channel = shift if ($ARGV[0] =~ /^\d+$/);
+my ($spam, $message, $preserve) = (0, 0, 0);
+while ($ARGV[0] =~ /^-/) {
+    my $option = shift;
+    $spam     ||= ($option =~ /s/);
+    $message  ||= ($option =~ /m/);
+}
+$channel = shift if ($ARGV[0] =~ /^\d+$/);
 while (<>) {
     next if (/^\*{3}/);
+    next if (/^%/);
     next if (/^CC: Log/);
-    next if (defined $channel && /^<(\d+): /     && $1 != $channel);
-    next if (defined $channel && /^\* (\d+): /   && $1 != $channel);
-    next if (defined $channel && /^\{(\d+): /    && $1 != $channel);
-    next if (defined $channel && /^\* \{(\d+): / && $1 != $channel);
-    next if (defined $message && /^(\*\S|->)/);
     tr/\r//d;
+    next if (defined $message && /^(?:\*\S|(?:\* )?-> )/);
+    if (defined $channel) {
+	next if (/^<\D/);
+	next if (/^\* \D/);
+	next if (/^\{\D/);
+	next if (/^\* \{\D/);
+	next if (/^<(\d+): /     && $1 != $channel);
+	next if (/^\* (\d+): /   && $1 != $channel);
+	next if (/^\{(\d+): /    && $1 != $channel);
+	next if (/^\* \{(\d+): / && $1 != $channel);
+    }
+    s/\s+\[\S+\]$//;
     if ($spam) {
 	s/^<(?:\d+: )?\S+> \[(.*)\]$/[$1]/;
 	s/^<(?:\d+: )?\S+> \[([^\]]+)\]/[$1]/;
@@ -58,10 +70,12 @@ while (<>) {
     } else {
 	s/^<(?:\d+: )?\S+> \[(.*)\]$/* $1/;
 	s/^<(?:\d+: )?\S+> \[([^\]]+)\]/<$1>/;
-	s/^<\d+: /</;
-	s/^\* \d+:/*/;
 	s/^\{(?:\d+: )?(.*?)\} (.*) <\S+>$/<$1> $2/;
 	s/^\* \{(?:\d+: )?(.*)\} <\S+>$/* $1/;
+	s/^<\d+: /</;
+	s/^\* \d+:/*/;
+        s/^\[(.*)\]$/* $1/;
+        s/^\[(.*?)\]/<$1>/;
 	eval { $_ = wrap ("", "", $_) };
     }
     print;
