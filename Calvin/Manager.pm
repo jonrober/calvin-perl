@@ -29,8 +29,9 @@ $ID      = '$Id$';
 $VERSION = (split (' ', $ID))[2];
 
 # We ping all servers after this much time (in seconds) has passed.  Change
-# it from your program if you wish.  Setting it to 0 would be bad.
-$ping_after = 10;
+# it from your program if you wish.  Setting it to 0 would be bad.  The
+# default is ten minutes.
+$ping_after = 600;
 
 
 ############################################################################
