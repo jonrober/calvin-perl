@@ -117,6 +117,10 @@ sub cmd_end {
 # players.
 sub cmd_init {
     my ($self, $client, $user, $players) = @_;
+    unless ($players) {
+        $client->msg ($user, 'You can\'t start a game without players');
+        return;
+    }
     my ($channel, @players) = split (' ', $players);
     if ($channel !~ /^\d+$/) {
         $client->msg ($user, "Bad channel number $channel\n");
@@ -151,7 +155,7 @@ sub cmd_init {
     }
 }
 
-# Purge the in-memory cache of cards.
+# Reload a given card from disk by name.
 sub cmd_reload {
     my ($self, $client, $user, $card) = @_;
     my $name = $self->clean ($card);
@@ -203,7 +207,6 @@ sub return_commands { return @COMMANDS }
 sub handle_line {
     my $self = shift;
     my ($manager, $client, $line, %p) = @_;
-    my $fh = $$self{FILE};
 
     $line =~ s/\s+$//;
     if ($p{code} != C_WHIS || $p{s1} =~ /^- / || $p{on_channels}) {
@@ -214,7 +217,7 @@ sub handle_line {
     # dispatch the command to the appropriate place.
     my ($method, $public);
     my ($command, $rest) = split (' ', $p{s1}, 2);
-    chomp $rest;
+    chomp $rest if $rest;
     $command = lc $command;
     if ($command =~ s/([<>])$//) {
         $public = $1;
