@@ -1,6 +1,8 @@
 # Calvin::Client -- Perl module interface to Calvin-style chatservers.
+# $Id$
 #
-# Copyright 1996 by Russ Allbery <rra@cs.stanford.edu>
+# Copyright 1996, 1997 by Russ Allbery <rra@stanford.edu>
+#
 # This program is free software; you can redistribute it and/or modify it
 # under the same terms as Perl itself.
 #
@@ -19,45 +21,55 @@
 ############################################################################
 
 package Calvin::Client;
-require 5.002;
+require 5.00390;
 
-use Calvin::Parse;
-use IO::Handle;
-use Socket qw(inet_aton sockaddr_in PF_INET SOCK_STREAM);
+use Calvin::Parse qw();
 use Fcntl qw(F_SETFL O_NONBLOCK);
+use IO::Handle ();
+use POSIX qw(EISCONN EINPROGRESS);
+use Socket qw(inet_aton sockaddr_in PF_INET SOCK_STREAM);
 
 use strict;
 use vars qw(@ISA $ID $VERSION $BUFFER_SIZE $TIMEOUT);
 
 @ISA = qw(Calvin::Parse);
 
- $ID          = '$Id$';
-($VERSION     = (split (' ', $ID))[2]) =~ s/\.(\d)$/.0$1/;
+($VERSION     = (split (' ', q$Revision$ ))[1]) =~ s/\.(\d)$/.0$1/;
  $BUFFER_SIZE = 256;
- $TIMEOUT     = 60;		# One minute timeout on read and write.
+ $TIMEOUT     = 60;             # One minute timeout on read and write.
 
 
 ############################################################################
 # Basic methods
 ############################################################################
 
-# Create a new Calvin interface object.  We won't connect in the constructor
-# just in case there's a reason to keep a disconnected Calvin::Client object
-# around.
+# Create a new Calvin interface object, which is very simple and doesn't
+# connect.
 sub new {
-    my $class = shift;
-    my $self = {buffer => ""};
+    my $that = shift;
+    my $class = ref $that || $that;
+    my $hooks = { map { $_, '' } @Calvin::Parse::EXPORT_TAGS{contants} };
+    $hooks{connect_finish} = '';
+    $hooks{connect_fail} = '';
+    my $self = { buffer => "", hook => $hooks };
     bless ($self, $class);
     return $self;
 }
+
+# Register a callback.  
 
 # Connect to a Calvin chatserver.  If the fourth argument (the nick
 # fallback), is a false but defined value, no fallback is used, and if the
 # default nick is taken connection will fail.  If the client has already
 # been initialized and we're reconnecting, connect can be called with no
-# arguments, or with partial arguments to override the default values.
+# arguments, or with partial arguments to override the default values.  If
+# the fifth argument is true, nonblocking connect is used instead of
+# blocking connect.  Note that this could mean that connect returns before
+# the client is connected.  $fallback should be a sub which modifies its
+# first argument, and is used to fall back on another nick if the requested
+# one is taken.
 sub connect {
-    my ($self, $host, $port, $nick, $fallback) = @_;
+    my ($self, $host, $port, $nick, $nonblocking, $fallback) = @_;
 
     # Initialize class variables for this connection.  The default fallback
     # function, used if one isn't supplied, just adds "1" to the end of the
@@ -67,7 +79,7 @@ sub connect {
     $self->{nick}     = $nick if $nick;
     $self->{fallback} = $self->{fallback} || $fallback;
     unless (defined $self->{fallback}) {
-	$self->{fallback} = sub { $_[0] =~ s/(\d*)$/"0$1" + 1/e }
+        $self->{fallback} = sub { $_[0] =~ s/(\d*)$/"0$1" + 1/e }
     }
 
     # Throw an exception of the connection isn't fully defined.
@@ -76,42 +88,42 @@ sub connect {
     if (not defined $self->{nick}) { die "No nick defined" }
     
     # Open connection.
-    $self->tcp_connect ($self->{host}, $self->{port}) or return undef;
+    $self->tcp_connect ($nonblocking) or return undef;
 
     {
-	# Now, we need to handle initial sign-on and setting the nick.  This
-	# is the part of parsing that's rather ugly since the server doesn't
-	# end the nick request line in a newline but uses a telnet code
-	# instead.  We're looking for \xff\xf9.
-	my $buf = "";
-	unless ($self->raw_read (\$buf, "\xff\xf9")) {
-	    $self->shutdown;
-	    return undef;
-	}
+        # Now, we need to handle initial sign-on and setting the nick.  This
+        # is the part of parsing that's rather ugly since the server doesn't
+        # end the nick request line in a newline but uses a telnet code
+        # instead.  We're looking for \xff\xf9.
+        my $buf = "";
+        unless ($self->raw_read (\$buf, "\xff\xf9")) {
+            $self->shutdown;
+            return undef;
+        }
 
-	# We now have a nick prompt.  Send the nick.
-	$self->raw_send ("$self->{nick}\n");
+        # We now have a nick prompt.  Send the nick.
+        $self->raw_send ("$self->{nick}\n");
 
-	# We should now see either the "nickname in use" message or the
-	# welcoming "you are now known as" message.  If we see "nickname in
-	# use", we need to call $fallback to change the nick and try again.
-	# Otherwise if we don't have a fallback or if we lost our
-	# connection, return undef.
-	$buf = $self->read;
-	if (!defined $buf) {
-	    $self->shutdown;
-	    return undef;
-	} elsif ($buf != C_S_NICK) {
-	    if ($self->{fallback}) {
-		&{$self->{fallback}} ($self->{nick});
-		redo;
-	    } else {
-		undef;
-	    }
-	} else {
-	    # Always introduce ourselves to the server.
-	    $self->hello;
-	}
+        # We should now see either the "nickname in use" message or the
+        # welcoming "you are now known as" message.  If we see "nickname in
+        # use", we need to call $fallback to change the nick and try again.
+        # Otherwise if we don't have a fallback or if we lost our
+        # connection, return undef.
+        $buf = $self->read;
+        if (!defined $buf) {
+            $self->shutdown;
+            return undef;
+        } elsif ($buf != C_S_NICK) {
+            if ($self->{fallback}) {
+                &{$self->{fallback}} ($self->{nick});
+                redo;
+            } else {
+                undef;
+            }
+        } else {
+            # Always introduce ourselves to the server.
+            $self->hello;
+        }
     }
 }
 
@@ -121,8 +133,8 @@ sub shutdown {
     my ($self) = @_;
 
     if ($self->{fh}) {
-	close $self->{fh};
-	delete $self->{fh};
+        close $self->{fh};
+        delete $self->{fh};
     }
     $self->{buffer} = "";
 }
@@ -242,23 +254,23 @@ sub raw_read {
     # non-blocking, we need to select on our file number to make sure there
     # is data there waiting for us.
     while (index ($self->{buffer}, $delim) == -1) {
-	my $rin = '';
-	my $rout;
-	vec ($rin, $self->{fh}->fileno, 1) = 1;
-	my $nbits = select ($rout = $rin, undef, undef, $TIMEOUT);
+        my $rin = '';
+        my $rout;
+        vec ($rin, $self->{fh}->fileno, 1) = 1;
+        my $nbits = select ($rout = $rin, undef, undef, $TIMEOUT);
 
-	# Close down the socket if there was an error, and return undef in
-	# case of either an error or a timeout.
-	if ($nbits < 0) { $self->shutdown }
-	if ($nbits < 1) { return undef }
+        # Close down the socket if there was an error, and return undef in
+        # case of either an error or a timeout.
+        if ($nbits < 0) { $self->shutdown }
+        if ($nbits < 1) { return undef }
 
-	# Actually do the read.  If we don't get any data, we saw an end of
-	# file, and we need to close down this connection.
-	unless (sysread ($self->{fh}, $tmpbuf, $BUFFER_SIZE)) {
-	    $self->shutdown;
-	    return undef;
-	}
-	$self->{buffer} .= $tmpbuf;
+        # Actually do the read.  If we don't get any data, we saw an end of
+        # file, and we need to close down this connection.
+        unless (sysread ($self->{fh}, $tmpbuf, $BUFFER_SIZE)) {
+            $self->shutdown;
+            return undef;
+        }
+        $self->{buffer} .= $tmpbuf;
     }
 
     # Split out the data we want to actually return and do so.
@@ -283,20 +295,20 @@ sub raw_send {
     my $written;
     my $count = 0;
     do {
-	my $win = '';
-	my $wout;
-	vec ($win, $self->{fh}->fileno, 1) = 1;
-	my $nbits = select (undef, $wout = $win, undef, $TIMEOUT);
-	if ($nbits < 1) { return undef }
+        my $win = '';
+        my $wout;
+        vec ($win, $self->{fh}->fileno, 1) = 1;
+        my $nbits = select (undef, $wout = $win, undef, $TIMEOUT);
+        if ($nbits < 1) { return undef }
 
-	# Actually write out the data.
-	$written = syswrite ($self->{fh}, $$buf, (length $$buf) - $count,
-			     $count);
-	unless ($written) {
-	    $self->shutdown;
-	    return undef;
-	}
-	$count += $written;
+        # Actually write out the data.
+        $written = syswrite ($self->{fh}, $$buf, (length $$buf) - $count,
+                             $count);
+        unless ($written) {
+            $self->shutdown;
+            return undef;
+        }
+        $count += $written;
     } until ($count == length $$buf);
     1;
 }
@@ -306,11 +318,13 @@ sub raw_send {
 # Private methods
 ############################################################################
 
-# Open a TCP connection.  We really should use LWP, but I'd prefer not to
-# have these modules dependent on it, and this is easy enough to do
-# ourselves.
-sub tcp_connect {
-    my ($self, $host, $port) = @_;
+# Open a nonblocking TCP connection.  Eventually, we'll want to use
+# IO::Socket for this, but it doesn't handle nonblocking right yet.  We
+# return true if we connect, a false but defined value if the connection is
+# pending, and undef if the connection fails for whatever reason.
+sub tcp_start_connect {
+    my $self = shift;
+    my ($host, $port) = ($$self{host}, $$self{port});
     unless (defined $host && defined $port) { return undef }
 
     # If the port isn't numeric, look it up.  If that fails, we fail.
@@ -324,14 +338,45 @@ sub tcp_connect {
     my $proto = getprotobyname ('tcp')             or return undef;
     my $socket = new IO::Handle;
     socket ($socket, PF_INET, SOCK_STREAM, $proto) or return undef;
-    connect ($socket, $paddr)                      or return undef;
 
-    # Set the socket to nonblocking.
+    # Do the nonblocking magic.  First set socket to nonblocking, and then
+    # call connect.  If connect fails, check the error code; if it's equal
+    # to EINPROGRESS, then we've started a nonblocking connection and should
+    # return.
     fcntl ($socket, F_SETFL, O_NONBLOCK)           or return undef;
+    unless (connect ($socket, $paddr)) {
+        unless ($! == EINPROGRESS) { return undef }
+        $$self{connecting} = $paddr;
+    }
     
     # Unbuffer the created file handle and save it in the object.
     $socket->autoflush;
-    $self->{fh} = $socket;
+    $$self{fh} = $socket;
+
+    # Return the right status.
+    return $$self{connecting} ? 0 : 1;
+}
+
+# Finish a nonblocking TCP connection.  Call this when the file descriptor
+# selects true for write.  We return true if the connection was successful
+# and undef if the connection failed.
+sub tcp_finish_connect {
+    my $self = shift;
+
+    # Make sure we really do have a pending connection.
+    unless ($$self{connecting}) { return defined $$self{fd} }
+
+    # In order to check to see whether the connection succeeded or failed,
+    # we call connect again.  If the connection succeeded, then the second
+    # connect will fail with EISCONN.  If the second connection succeeded,
+    # then go with it.  Otherwise, close the socket and return failure.  We
+    # stored the packed address we're connecting to in $$self{connecting}.
+    if (!connect ($$self{fd}, $$self{connecting}) && $! != EISCONN) {
+        delete $$self{connecting};
+        close $$self{fh};
+        delete $$self{fh};
+        return undef;
+    }
     1;
 }
 
