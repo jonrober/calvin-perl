@@ -45,8 +45,8 @@ if ($ARGV[0] eq '-p') {
 # given a date in some form on the command line.  If we are, then we'll take
 # that as the date.
 my $time = @ARGV ? str2time ("@ARGV") : time;
-my $yesterday = strftime ('%y-%m-%d', localtime ($time - 24 * 60 * 60));
-my $today = strftime ('%y-%m-%d', localtime $time);
+my $yesterday = strftime ('%Y-%m-%d', localtime ($time - 24 * 60 * 60));
+my $today = strftime ('%Y-%m-%d', localtime $time);
 
 # Open up our output device.
 if ($address) {
@@ -68,17 +68,18 @@ for my $directory (@directories) {
     my (%channel, @channel);
     
     # Start by finding the appropriate logs.
-    opendir (DIR, $directory) or die "Cannot open $directory: $!\n";
-    my ($ylog, $tlog);
-    for (readdir DIR) {
-        /^$yesterday/o and $ylog = $_;
-        /^$today/o     and $tlog = $_;
-    }
-    closedir DIR;
+    my $ydir = $yesterday;
+    $ydir =~ s/-\d+$//;
+    my $tdir = $today;
+    $tdir =~ s/-\d+$//;
+    my $ylog = $directory . '/' . $ydir . '/' . $yesterday;
+    $ylog .= ($directory =~ /fkids/) ? '-fkids.log' : '-public.log';
+    my $tlog = $directory . '/' . $tdir . '/' . $today;
+    $tlog .= ($directory =~ /fkids/) ? '-fkids.log' : '-public.log';
 
     # Now scan yesterday's log up until 6am, keeping track of what channels
     # everything is on.
-    @ARGV = ("$directory/$ylog", "$directory/$tlog");
+    @ARGV = ($ylog, $tlog);
     my $count = 0;
     while (<>) {
         if (/^% Channel (\d+): \[(.*)\]$/) {
