@@ -25,8 +25,8 @@ use Calvin::Client;
 use strict;
 use vars qw($ID $VERSION $ping_after);
 
-$ID      = '$Id$';
-$VERSION = (split (' ', $ID))[2];
+ $ID      = '$Id$';
+($VERSION = (split (' ', $ID))[2]) =~ s/\.(\d)$/.0$1/;
 
 # We ping all servers after this much time (in seconds) has passed.  Change
 # it from your program if you wish.  Setting it to 0 would be bad.  The
@@ -50,7 +50,7 @@ sub new {
 	queue   => []		# Queue of events.
     };
     bless ($self, $class);
-    $self->enqueue (time + $ping_after, sub { $self->periodic });
+    $self->enqueue (time + $ping_after, sub { $self->ping });
     $self;
 }
 
@@ -147,14 +147,13 @@ sub enqueue {
 }
 
 # Run the queue by removing and executing every closure whose time has
-# arrived.  The current time is passed to each closure as an argument, in
-# case the closure wants to use it.
+# arrived.
 sub run_queue {
     my ($self) = @_;
     my $event;
     while (defined $self->{queue}[0] && $self->{queue}[0][0] <= time) {
 	$event = shift @{$self->{queue}};
-	&{$event->[1]} (time);
+	&{$event->[1]};
     }
     defined $self->{queue}[0] ? $self->{queue}[0][0] : undef;
 }
@@ -164,18 +163,16 @@ sub run_queue {
 # Private methods
 ############################################################################
 
-# Perform any periodic maintenance we need to do on our clients, such as
-# reseting nicks or pinging servers.  Currently, all we do is send a date
-# command to each live server to ensure that we're still connected.  This is
-# run from the event queue and adds itself back onto the queue after each
-# execution.
-sub periodic {
+# Send a date command to each live server to ensure that we're still
+# connected.  This is run from the event queue and adds itself back onto the
+# queue after each execution.
+sub ping {
     my ($self) = @_;
     my $client;
     for $client (@{$self->{clients}}) {
 	$client->date if defined $client->connected;
     }
-    $self->enqueue (time + $ping_after, sub { $self->periodic });
+    $self->enqueue (time + $ping_after, sub { $self->ping });
 }
 
 # Build an input vector for all of the live clients.  Takes an array of
