@@ -27,19 +27,17 @@ use vars qw(%CARDS @COMMANDS %COMMANDS %HELP $ROOT $VERSION);
 $ROOT = '/home/eagle/magic/cards';
 
 # Our commands, for the bot interface.
-@COMMANDS = qw(cwhat end init purge what);
+@COMMANDS = qw(end init reload what);
 %COMMANDS = map { $_ => 1 } @COMMANDS;
 
 # Our help text, for the bot interface.
-%HELP = (cwhat    => ['Syntax:  cwhat <channel> <card>',
-                      'Send the description of a card to a channel.'],
-         end      => ['Syntax:  end GAME',
+%HELP = (end      => ['Syntax:  end GAME',
                       'End the current game, destroying its data.'],
          init     => ['Syntax:  init <channel> <player> [<player> ...]',
                       'Start a new game with the given players.'],
-         purge    => ['Syntax:  purge',
-                      'Purge the in-memory card cache.'],
-         what     => ['Syntax:  what <card>',
+         reload   => ['Syntax:  reload <card>',
+                      'Reload the given card from disk.'],
+         what     => ['Syntax:  what[>] <card>',
                       'Describes the powers of the given Magic card.']);
 
 
@@ -97,21 +95,13 @@ sub description {
 # Commands
 ############################################################################
 
-# Translate a cwhat command into a what command by parsing out the channel
-# number and then calling cmd_what, passing it as the fifth argument.
-sub cmd_cwhat {
-    my ($self, $client, $user, $line) = @_;
-    my ($channel, $card) = split (' ', $line, 2);
-    $self->cmd_what ($client, $user, $card, $channel);
-}
-
 # End the current game.  Require the first argument be exactly "GAME" to
 # prevent typos and mistakes.
 sub cmd_end {
     my ($self, $client, $user, $rest) = @_;
     if (!$$self{CHANNEL}) {
         $client->msg ($user, 'No game is currently in progress');
-    } elsif ($rest ne 'END') {
+    } elsif ($rest ne 'GAME') {
         $client->msg ($user, 'Use "end GAME" to end the current game');
     } else {
         $client->public ($$self{CHANNEL},
@@ -128,7 +118,9 @@ sub cmd_end {
 sub cmd_init {
     my ($self, $client, $user, $players) = @_;
     my ($channel, @players) = split (' ', $players);
-    if (!@players) {
+    if ($channel !~ /^\d+$/) {
+        $client->msg ($user, "Bad channel number $channel\n");
+    } elsif (!@players) {
         $client->msg ($user, 'You can\'t start a game without players');
     } elsif ($$self{PLAYERS}) {
         $client->msg ($user, 'A game is currently in progress');
@@ -153,30 +145,34 @@ sub cmd_init {
         } else {
             $pretty = join (' and ', @players);
         }
-        $client->public ($channel, "Starting a new game between $players "
+        my $count = ['with', 'between']->[$#players] || 'among';
+        $client->public ($channel, "Starting a new game $count $pretty "
                          . "at ${user}'s request");
     }
 }
 
 # Purge the in-memory cache of cards.
-sub cmd_purge {
-    my ($self, $client, $user) = @_;
-    undef %CARDS;
-    $client->msg ($user, 'Memory cache purged');
+sub cmd_reload {
+    my ($self, $client, $user, $card) = @_;
+    my $name = $self->clean ($card);
+    if (!defined $CARDS{$name}) {
+        $client->msg ($user, "$card not currently cached\n");
+    } elsif ($self->load_card ($name)) {
+        $client->msg ($user, "$card description reloaded\n");
+    } else {
+        $client->msg ($user, "Unable to find description for $card\n");
+    }
 }
 
 # Return a formatted card description to a given user or channel.  We use
 # the load_card method to load it if its not already in our cache.
 sub cmd_what {
-    my ($self, $client, $user, $card, $channel) = @_;
-    if (defined $channel && $channel !~ /^\d+$/) {
-        $client->msg ($user, "Bad channel number $channel\n");
-    }
+    my ($self, $client, $user, $card, $public) = @_;
     my $name = $self->clean ($card);
-    if (!defined $CARDS{$name} && !$self->load_card ($name)) {
+    if (!exists $CARDS{$name} && !$self->load_card ($name)) {
         $client->msg ($user, "No description for $card\n");
     } else {
-        $client->msg ((defined $channel ? $channel : $user),
+        $client->msg (($public && $public eq '>' ? $$self{CHANNEL} : $user),
                       $self->description ($name));
     }
 }
@@ -216,18 +212,19 @@ sub handle_line {
 
     # Parse the message, pulling off the first word as the command, and then
     # dispatch the command to the appropriate place.
+    my ($method, $public);
     my ($command, $rest) = split (' ', $p{s1}, 2);
+    chomp $rest;
     $command = lc $command;
+    if ($command =~ s/([<>])$//) {
+        $public = $1;
+    }
     if ($COMMANDS{$command}) {
-        my $method = 'cmd_' . $command;
-        $self->$method ($client, $p{name}, $rest);
-        return 1;
+        $method = 'cmd_' . $command;
     } else {
         my @choices = grep { /^$command/ } @COMMANDS;
         if (@choices == 1) {
-            my $method = 'cmd_' . $choices[0];
-            $self->$method ($client, $p{name}, $rest);
-            return 1;
+            $method = 'cmd_' . $choices[0];
         } elsif (@choices > 1) {
             $client->msg ($p{name}, 'Ambiguous command $command in '
                           . join (', ', @choices));
@@ -236,4 +233,6 @@ sub handle_line {
             return 0;
         }
     }
+    $self->$method ($client, $p{name}, $rest, $public);
+    1;
 }
