@@ -112,8 +112,8 @@ for my $directory (@directories) {
     # If we found any channels, print out the results.
     next unless $count;
     my ($server) = ($directory =~ m%([^/]+/[^/]+)$%);
-    my $startcut = str2time ("6:00am $yesterday");
-    my $stopcut = str2time ("6:00am $today");
+    my $startcut = str2time ("$yesterday 06:00");
+    my $stopcut = str2time ("$today 06:00");
     print OUT "On $server:\n\n";
     for (sort keys %channel) {
         my ($start, $stop);
