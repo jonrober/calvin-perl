@@ -18,6 +18,13 @@ use vars qw($root $version);
 $root = '/ftp/pub/complex/descs';
 
 {
+    # We actually want to run as a daemon, so fork ourselves, exit the
+    # parent, and close the standard file handles.
+    fork && exit;
+    close STDIN;
+    close STDOUT;
+    close STDERR;
+    
     # Initialize the manager and create and connect the clients.
     my $manager = new Calvin::Manager;
     while (<DATA>) {
