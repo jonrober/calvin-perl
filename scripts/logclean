@@ -37,6 +37,7 @@ my $spam = shift if ($ARGV[0] =~ /^-.*s/);
 my $channel = shift if ($ARGV[0] =~ /^\d+$/);
 while (<>) {
     next if (/^\*{3}/);
+    next if (/^CC: Log/);
     next if (/^<(\d+): /     && $1 != $channel);
     next if (/^\* (\d+): /   && $1 != $channel);
     next if (/^\{(\d+): /    && $1 != $channel);
