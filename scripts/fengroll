@@ -35,6 +35,7 @@ $calvin  = new Calvin;
 	    # The actual guts of the bot.  We scan for messages that request
             # some action and perform that action.
 	    my $line;
+	    my @pluses = ();
 	    while ($calvin->raw_read (\$line)) {
 		# First check for a @msg of the form "*User* message".  Make
 		# sure we don't match system messages.
@@ -49,9 +50,10 @@ $calvin  = new Calvin;
 		    # Handle commands.
 		    if ($message =~ /^help/i) {
 			&send_help ($user);
-		    } elsif ($message =~ /^(f)?(roll\s+([+-]\d+)+)?/i) {
+		    } elsif ($message =~ /^(f)?roll((\s+[+-]\d+)+)?/i) {
 			my $fortune = $1 ? 1 : 0;
-			my @pluses = /roll\s+([+-]\d+)/g;
+			my $pluses = $2;
+			my @pluses = ($pluses =~ /([+-]\d+)/g) if $pluses;
 			&do_roll ($user, $fortune, @pluses);
 		    } elsif ($message =~ /^quit/) {
 			&send_quit ($user);
@@ -91,13 +93,15 @@ sub send_unknown {
 # Send a quit message.
 sub send_quit {
     my ($user) = @_;
-    $calvin->raw_write ("/quit Exiting at ${user}'s request\n");
+    $calvin->raw_send ("/quit Exiting at ${user}'s request\n");
 }
 
 # Do a Feng Shui dice roll.
 sub do_roll {
     my ($user, $fortune, @pluses) = @_;
-    my (@d1, @d2, $except, $reroll, $extra, $total, $cmsg);
+    my (@d1, @d2, $reroll, $extra, $cmsg);
+    my $except = 0;
+    my $total = 0;
     
     do {
 	undef $reroll;
