@@ -1,99 +1,67 @@
-# Calvin.pm -- Perl module interface to Calvin-style chatservers.
+# Calvin::Client -- Perl module interface to Calvin-style chatservers.
 #
 # Copyright 1996 by Russ Allbery <rra@cs.stanford.edu>
 # This program is free software; you can redistribute it and/or modify it
 # under the same terms as Perl itself.
-# 
-# This module owes its existence to Jon Lennox <jon@cs.columbia.edu>, who
+#
+# This module owes its existence to Jon Lennox <lennox@cs.columbia.edu>, who
 # wrote the Calvin chatserver that this module is designed to connect to,
 # wrote the original Perl Calvin bot that this module is based on, and
 # provided hints, information, and suggestions throughout its development.
 # Thanks, Jon, for making all of Calvin possible in the first place.
 
-package Calvin;
+package Calvin::Client;
 require 5.002;
 
+use Calvin::Parse;
+use Fcntl;
 use FileHandle;
 use Socket;
 
 use strict;
-use vars qw(@ISA @EXPORT $ID $VERSION $BUFFER_SIZE);
+use vars qw(@ISA $ID $VERSION $BUFFER_SIZE $TIMEOUT);
 
-require Exporter;
-@ISA = qw(Exporter);
+@ISA = qw(Calvin::Parse);
 
 $ID          = '$Id$';
 $VERSION     = (split (' ', $ID))[2];
 $BUFFER_SIZE = 256;
-
-@EXPORT = qw(C_PUBLIC C_POSE C_ROLL C_YELL C_YELL_POSE C_YELL_ROLL
-             C_WHIS C_WHIS_POSE C_WHIS_ROLL
-             C_CONNECT C_JOIN C_LEAVE C_NICKCHANGE C_SIGNOFF
-             C_E_NICK_USE C_E_NICK_LONG
-             C_UNKNOWN);
+$TIMEOUT     = 60;		# 1 minute timeout on read and write.
 
 
-#------------------------------  Constants  -------------------------------#
+#############################  Basic Methods  ##############################
 
-# Public channel messages.
-sub C_PUBLIC         { 1 }	# Regular public channel messages.
-sub C_POSE           { 2 }	# Public poses.
-sub C_ROLL           { 3 }	# Public rolls.
-sub C_YELL           { 4 }	# Regular yells.
-sub C_YELL_POSE      { 5 }	# Yelled poses.
-sub C_YELL_ROLL      { 6 }	# Yelled rolls.
-
-# Private messages.
-sub C_WHIS           { 100 }	# Private whispers.
-sub C_WHIS_POSE      { 101 }	# Whispered poses.
-sub C_WHIS_ROLL      { 102 }	# Whispered rolls.
-
-# Server messages.
-sub C_CONNECT        { 200 }	# Connected to the chatserver.
-sub C_JOIN           { 201 }	# Joined channel.
-sub C_LEAVE          { 202 }	# Left channel.
-sub C_NICKCHANGE     { 203 }	# Changed nick.
-sub C_SIGNOFF        { 204 }	# Left the chatserver.
-
-# Error messages.
-sub C_E_NICK_LONG    { 1000 }	# Nick too long.
-sub C_E_NICK_USE     { 1001 }	# Nick already in use.
-sub C_E_NICK_INVALID { 1002 }	# Invalid nick.
-
-# Status messages.
-sub C_S_NICK         { 2000 }	# Initial response to nick setting.
-
-# Unknown messages.
-sub C_UNKNOWN        { 0 }	# Unknown message.
-
-
-#----------------------------  Public Methods  ----------------------------#
-
-# Create a new Calvin interface object.  In preparation of future revisions
-# of this module which will allow for multiple connections to be handled by
-# one object, we won't connect in the constructor.
+# Create a new Calvin interface object.  We won't connect in the constructor
+# just in case there's a reason to keep a disconnected Calvin::Client object
+# around.
 sub new {
     my $class = shift;
     my $self = {};
     bless ($self, $class);
-    $self->{'buffer'} = "";	# Kill warning messages.
+    $self->{buffer} = "";	# Kill warning messages.
     return $self;
 }
 
-# Connect to a Calvin chatserver.
+# Connect to a Calvin chatserver.  Note that currently you have to have a
+# nick fallback; if you don't supply one, the default will be used.  Ideally
+# this should be changed to allow no fallback if you really want that.  If
+# the client has already been initialized and we're reconnecting, connect
+# can be called with no arguments, or with partial arguments to override the
+# default values.
 sub connect {
     my ($self, $host, $port, $nick, $fallback) = @_;
 
-    unless ($host && $port && $nick) { return undef }
-    
     # Initialize class variables for this connection.
-    $self->{'host'}     = $host;
-    $self->{'port'}     = $port;
-    $self->{'nick'}     = $nick;
-    $self->{'fallback'} = $fallback if $fallback;
+    $self->{host}     = $host if $host;
+    $self->{port}     = $port if $port;
+    $self->{nick}     = $nick if $nick;
+    $self->{fallback} = $self->{fallback} || $fallback || \&fallback;
+
+    # Ensure that we have a fully-specified connection.
+    if (!$self->{host} || !$self->{port} || !$self->{nick}) { return undef }
     
     # Open connection.
-    unless ($self->tcp_connect ($host, $port)) { return undef }
+    $self->tcp_connect ($self->{host}, $self->{port}) or return undef;
 
     {
 	# Now, we need to handle initial sign-on and setting the nick.  This
@@ -119,14 +87,15 @@ sub connect {
 	    $self->shutdown;
 	    return undef;
 	} elsif ($buf != C_S_NICK) {
-	    if ($self->{'fallback'}) {
-		$self->{'nick'} = &{$self->{'fallback'}} ($self->{'nick'});
+	    if ($self->{fallback}) {
+		$self->{nick} = &{$self->{fallback}} ($self->{nick});
 		redo;
 	    } else {
 		undef;
 	    }
 	} else {
-	    1;
+	    # Always introduce ourselves to the server.
+	    $self->hello;
 	}
     }
 }
@@ -136,115 +105,146 @@ sub connect {
 sub shutdown {
     my ($self) = @_;
 
-    if ($self->{'fh'}) {
-	close $self->{'fh'};
-	delete $self->{'fh'};
+    if ($self->{fh}) {
+	close $self->{fh};
+	delete $self->{fh};
     }
     $self->{'buffer'} = "";
 }
 
-# Read a line from the chatserver and try to parse it, returning one of the
-# following forms if successful:
-#
-#	C_PUBLIC, channel, user, message, on_channel
-#	C_POSE, channel, message, on_channel
-#	C_ROLL, channel, user, roll, on_channel
-#	C_YELL, user, message
-#	C_YELL_POSE, message
-#	C_YELL_ROLL, user, roll
-#
-#	C_WHIS, user, message
-#	C_WHIS_POSE, message
-#	C_WHIS_ROLL, user, roll
-#
-#	C_CONNECT, user, date, host
-#	C_JOIN, user, channel, topic
-#	C_LEAVE, user, channel, topic
-#	C_NICKCHANGE, olduser, newuser
-#	C_SIGNOFF, nick, reason, date
-#
-#       C_E_NICK_INVALID
-#	C_E_NICK_LONG
-#	C_E_NICK_USE
-#
-#       C_S_NICK
-#
-#	C_UNKNOWN, message
-#
-# That is in an array context.  In a scalar context, just returns the
-# message type.
+# Read a line from the chatserver and try to parse it, returning a parsed
+# array in the form documented in Calvin::Parse, or in scalar context, just
+# return the message type.
 sub read {
     my ($self) = @_;
-    my (@r);
-    local ($_);
 
     # Grab a line of output.
-    unless ($self->raw_read (\$_)) { return undef }
+    my $line;
+    unless ($self->raw_read (\$line)) { return undef }
 
     # Try to parse it.
-    if    (/^<(\d+): (\S+)> (.*)/)          { @r = (C_PUBLIC, $1, $2, $3, 1) }
-    elsif (/^[(\d+): (\S+)] (.*)/)          { @r = (C_PUBLIC, $1, $2, $3, 0) }
-    elsif (/^\* (\d+): (.*)/)               { @r = (C_POSE, $1, $2, 1)       }
-    elsif (/^\* [(\d+): (.*)]$/)            { @r = (C_POSE, $1, $2, 0)       }
-    elsif (/^\#\# (\d+): (\S+) \S+ (.*)/)   { @r = (C_ROLL, $1, $2, $3, 1)   }
-    elsif (/^\#\# [(\d+): (\S+) \S+ (.*)]/) { @r = (C_ROLL, $1, $2, $3, 0)   }
-    elsif (/^[yell: (\S+)] (.*)/)           { @r = (C_YELL, $1, $2)          }
-    elsif (/^\* [yell: (.*)]$/)             { @r = (C_YELL_POSE, $1)         }
-    elsif (/^\#\# [yell: (\S+) \S+ (.*)]/)  { @r = (C_YELL_ROLL, $1, $2)     }
-    elsif (/^\*([^* ]|\S{2,})\* (.*)/)      { @r = (C_WHIS, $1, $2)          }
-    elsif (/^\*> (.*)/)                     { @r = (C_WHIS_POSE, $1)         }
-    elsif (/^\#\#> (\S+) \S+ (.*)/)         { @r = (C_WHIS_ROLL, $1, $2)     }
-    elsif (/^\*{3} Invalid nickname /)      { @r = (C_E_NICK_INVALID)        }
-    elsif (/^\*{3} Nickname \S+ too long/)  { @r = (C_E_NICK_LONG)           }
-    elsif (/^\*{3} Nickname \S+ in use/)    { @r = (C_E_NICK_USE)            }
-    elsif (/^\*{3} You are now known as /)  { @r = (C_S_NICK)                }
-    elsif (/^\*{3} (\S+) connected at (.*) from (\S+)\./)
-                                            { @r = (C_CONNECT, $1, $2, $3)   }
-    elsif (/^\*{3} (\S+) has joined channel (\d+) [(.*)]\./)
-                                            { @r = (C_JOIN, $1, $2, $3)      }
-    elsif (/^\*{3} (\S+) has left channel (\d+) [(.*)]\./)
-                                            { @r = (C_LEAVE, $1, $2, $3)     }
-    elsif (/^\*{3} (\S+) is now known as (\S+)\./)
-                                            { @r = (C_NICKCHANGE, $1, $2)    }
-    elsif (/^\*{3} Signoff: (\S+) \((.*)\) at (.*)\./)
-                                            { @r = (C_SIGNOFF, $1, $2, $3)   }
-    else                                    { @r = (C_UNKNOWN, $_)           }
+    my @result = $self->parse ($line);
 
     # Return whatever we got.
-    return wantarray ? @r : @r[0];
+    return wantarray ? @result : @result[0];
 }
-    
+
+
+#############################  Basic Commands  #############################
+
+# Join a channel (and then immediately join 16 again, since a client
+# shouldn't have a default channel to allow easier parsing of server
+# messages).
+sub join {
+    my ($self, $channel) = @_;
+    if ($channel !~ /^(1[0-5]|[0-9])$/) { return undef }
+    $self->raw_send ("\@join $channel\n\@join 16\n");
+}
+
+# Leave a channel.
+sub leave {
+    my ($self, $channel) = @_;
+    if ($channel !~ /^(1[0-5]|[0-9])$/) { return undef }
+    $self->raw_send ("\@leave $channel\n");
+}
+
+# Send a @msg.  This is intended mainly for private messages, since the
+# public method will check to make sure that the target is a channel.
+sub msg {
+    my ($self, $nick, $message) = @_;
+    unless ($nick) { return undef }
+    $self->raw_send ("\@msg $nick - $message\n");
+}
+
+# Send a public message to a channel.
+sub public {
+    my ($self, $channel, $message) = @_;
+    if ($channel !~ /^(1[0-5]|[0-9])$/) { return undef }
+    $self->raw_send ("\@msg $channel - $message\n");
+}
+
+# Send a date command.
+sub date {
+    my ($self) = @_;
+    $self->raw_send ("\@date\n");
+}
+
+# Send a message to ourselves, so that we'll register with the server.
+sub hello {
+    my ($self) = @_;
+    $self->msg ($self->{nick}, '.');
+}
+
+# Send a quit command.  Note that this method doesn't also shut down the
+# connection to the server.  This is so that the client can read the results
+# of the quit command if it so chooses and because terminating the
+# connection can cause the message to be lost.
+sub quit {
+    my ($self, $message) = @_;
+    $self->raw_send ("\@quit $message\n");
+}
+
+
+###########################  State Information  ############################
+
+# Return the file number of our socket if we're connected to a server, undef
+# if not.  This is the access routine commonly used to get the file number
+# of a client for use with select() or similar routines.
+sub connected {
+    my ($self) = @_;
+    $self->{fh} ? $self->{fh}->fileno : undef;
+}
+
+
+################################  Raw I/O  #################################
+
 # Read from the file descriptor into the passed buffer until encountering
 # the passed delimiter.  If no delimiter is given, assume "\n".  The
 # delimiter is NOT included in the returned data.
 sub raw_read {
     my ($self, $buf, $delim) = @_;
-    my ($status);
     my $tmpbuf = '';
+    my $status;
 
     # Make sure our passed parameters are okay, and choose a delimiter to
     # look for.
-    unless ($buf) { return undef  }
+    unless ($buf) { return undef }
     unless (defined $delim) { $delim = "\n" }
     $delim = quotemeta $delim;
 
     # Make sure we're connected.
-    unless ($self->{'fh'}) { return undef }
+    unless ($self->{fh}) { return undef }
 
     # This algorithm reads data from the fh and stores any excess seen after
     # the delimiter in the buffer $self->{buffer}.  We therefore read that
     # first, and if we still haven't seen the delimiter, read $BUFFER_SIZE
     # characters from the fh.  Continue, storing information in $buf, until
-    # we see the delimiter or we lose the connection.
-    while ($self->{'buffer'} !~ /$delim/) {
+    # we see the delimiter or we lose the connection.  Because our socket is
+    # non-blocking, we need to select on our file number to make sure there
+    # is data there waiting for us.
+    while ($self->{buffer} !~ /$delim/) {
+	my $rin = '';
+	my $rout;
+	vec ($rin, $self->{fh}->fileno, 1) = 1;
+	my $nbits = select ($rout = $rin, undef, undef, $TIMEOUT);
+
+	# Close down the socket if there was an error, and return undef in
+	# case of either an error or a timeout.
+	if ($nbits < 0) { $self->shutdown }
+	if ($nbits < 1) { return undef }
+
+	# Actually do the read.  If we don't get any data, we saw an end of
+	# file, and we need to close down this connection.
 	$status = sysread ($self->{'fh'}, $tmpbuf, $BUFFER_SIZE);
-	unless (defined $status) {
+	unless ($status) {
 	    $self->shutdown;
 	    return undef;
 	}
-	$self->{'buffer'} .= $tmpbuf;
+	$self->{buffer} .= $tmpbuf;
     }
-    ($tmpbuf, $self->{'buffer'}) = split (/$delim/, $self->{'buffer'}, 2);
+
+    # Split out the data we want to actually return and do so.
+    ($tmpbuf, $self->{buffer}) = split (/$delim/, $self->{buffer}, 2);
     $$buf = $tmpbuf;
     1;
 }
@@ -252,7 +252,7 @@ sub raw_read {
 # Send raw data to the file descriptor
 sub raw_send {
     my ($self, $message) = @_;
-    unless ($self->{'fh'}) { return undef }
+    unless ($self->{fh}) { return undef }
 
     # Handle both literal strings and passed references to strings.
     my $buf = ref $message ? $message : \$message;
@@ -260,13 +260,21 @@ sub raw_send {
     # It's possible for write(2) to return a fewer number of written bytes
     # than the size of the buffer being written.  To allow for that, we need
     # to keep writing until either the entire buffer has been written or we
-    # get an error of some sort.
+    # get an error of some sort.  Because the socket is non-blocking, we
+    # also need to select on it to make sure that it's ready for data.
     my $written;
     my $count = 0;
     do {
-	$written = syswrite ($self->{'fh'}, $$buf, length ($$buf) - $count,
+	my $win = '';
+	my $wout;
+	vec ($win, $self->{fh}->fileno, 1) = 1;
+	my $nbits = select (undef, $wout = $win, undef, $TIMEOUT);
+	if ($nbits < 1) { return undef }
+
+	# Actually write out the data.
+	$written = syswrite ($self->{fh}, $$buf, (length $$buf) - $count,
 			     $count);
-	unless (defined $written) {
+	unless ($written) {
 	    $self->shutdown;
 	    return undef;
 	}
@@ -276,12 +284,21 @@ sub raw_send {
 }
 
 
-#---------------------------  Private Methods  ----------------------------#
+############################  Private Methods  #############################
 
-# Open a TCP connection.
+# The default nick fallback function.  It appends a 1 to the end of the nick
+# if the nick doesn't end in a number, and otherwise adds one to the number.
+sub fallback {
+    my ($nick) = @_;
+    $nick =~ s/(\d+)$/$1 + 1/e;
+    $nick;
+}
+
+# Open a TCP connection.  We really should use LWP, but I'd prefer not to
+# have these modules dependent on it, and this is easy enough to do
+# ourselves.
 sub tcp_connect {
     my ($self, $host, $port) = @_;
-    my ($iaddr, $paddr, $proto, $socket);
     unless ($host && $port) { return undef }
 
     # If the port isn't numeric, look it up.  If that fails, we fail.
@@ -290,15 +307,24 @@ sub tcp_connect {
 
     # Look up the IP address of the remote host, create a socket, and try to
     # connect.
-    $iaddr = inet_aton ($host)                     or return undef;
-    $paddr = sockaddr_in ($port, $iaddr);
-    $proto = getprotobyname ('tcp');
-    $socket = new FileHandle;
+    my $iaddr = inet_aton ($host)                  or return undef;
+    my $paddr = sockaddr_in ($port, $iaddr);
+    my $proto = getprotobyname ('tcp')             or return undef;
+    my $socket = new FileHandle;
     socket ($socket, PF_INET, SOCK_STREAM, $proto) or return undef;
     connect ($socket, $paddr)                      or return undef;
 
+    # Set the socket to nonblocking.
+    fcntl ($socket, F_SETFL, O_NONBLOCK)           or return undef;
+    
     # Unbuffer the created file handle and save it in the object.
     $socket->autoflush;
-    $self->{'fh'} = $socket;
+    $self->{fh} = $socket;
     1;
 }
+
+
+##########################  Module Return Value  ###########################
+
+# Ensure we evaluate to true.
+1;
