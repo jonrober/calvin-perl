@@ -48,7 +48,7 @@ while (<>) {
     next if (/^%/);
     next if (/^CC: Log/);
     tr/\r//d;
-    next if (defined $message && /^(?:\*\S|(?:\* )?-> )/);
+    next if ($message && /^(?:\*\S|(?:\* )?-> )/);
     if (defined $channel) {
 	next if (/^<\D/);
 	next if (/^\* \D/);
@@ -59,8 +59,8 @@ while (<>) {
 	next if (/^\{(\d+): /    && $1 != $channel);
 	next if (/^\* \{(\d+): / && $1 != $channel);
     }
-    s/\s+\[\S+\]$//;
     if ($spam) {
+	s/ \[\S+\]$//;
 	s/^<(?:\d+: )?\S+> \[(.*)\]$/[$1]/;
 	s/^<(?:\d+: )?\S+> \[([^\]]+)\]/[$1]/;
 	s/^\{(?:\d+: )?(.*?)\} (.*) <\S+>$/[$1] $2/;
