@@ -2,10 +2,15 @@
 $version = q$Id$;
 #
 # dailyplex -- Report daily on the channels used in a Calvin log.
-#              Copyright 1997 by Russ Allbery <rra@stanford.edu>
+#              Copyright 1997-1998 by Russ Allbery <rra@stanford.edu>
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the same terms as Perl itself.
+#
+# This program scans logs in a set of directories and sends a report on what
+# it finds to a given address; it's intended for use with uberbot or some
+# similar logging method to provide a daily automated report on what all was
+# logged.  The code isn't all that clean, but it works.
 
 ############################################################################
 # Site configuration
@@ -21,6 +26,9 @@ $version = q$Id$;
 # the -p flag, we'll print the results to stdout instead.
 $address = 'complex@eyrie.org';
 
+# Who the log scan should be fron.
+$from = 'Automated Log Scan <eagle@eyrie.org>';
+
 
 ############################################################################
 # Implementation
@@ -29,7 +37,7 @@ $address = 'complex@eyrie.org';
 require 5.004;
 
 use strict;
-use vars qw($address @directories $version);
+use vars qw($address @directories $from $version);
 
 use Date::Parse;
 use POSIX qw(strftime);
@@ -50,10 +58,10 @@ my $today = strftime ('%Y-%m-%d', localtime $time);
 
 # Open up our output device.
 if ($address) {
-    open (OUT, '| /var/qmail/bin/qmail-inject $address')
+    open (OUT, '| /usr/lib/sendmail -t -oi -oem $address')
         or die "Can't open output: $!\n";
-    print OUT "To: complex\@eyrie.org\n";
-    print OUT "From: Automated Log Scan <eagle\@eyrie.org>\n";
+    print OUT "To: $address\n";
+    print OUT "From: $from\n";
     print OUT "Subject: Log scan for $yesterday (6am) to $today (6am)\n\n";
 } else {
     open (OUT, ">&STDOUT") or die "Can't dup stdout: $!\n";
