@@ -48,7 +48,6 @@ sub new {
     my $class = shift;
     my $self = {};
     bless ($self, $class);
-    warn "heya\n";
     $self->{buffer} = "";	# Kill warning messages.
     return $self;
 }
@@ -260,7 +259,6 @@ sub raw_read {
 	# file, and we need to close down this connection.
 	$status = sysread ($self->{fh}, $tmpbuf, $BUFFER_SIZE);
 	unless ($status) {
-	    warn "$status from sysread\n";
 	    $self->shutdown;
 	    return undef;
 	}
