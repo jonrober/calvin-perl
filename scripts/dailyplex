@@ -1,0 +1,128 @@
+#!/usr/bin/perl
+$version = q$Id$;
+#
+# dailyplex -- Report daily on the channels used in a Calvin log.
+#              Copyright 1997 by Russ Allbery <rra@stanford.edu>
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the same terms as Perl itself.
+
+############################################################################
+# Site configuration
+############################################################################
+
+# A list of directories to check for current log files.  We'll look at
+# yesterday's log starting at 6am and summarize channels used through 6am in
+# today's log.
+@directories = qw(/calvin/logs/complex/windlord /calvin/logs/complex/mork);
+
+# Address to which to mail the results.  If this is empty, or if we're given
+# the -p flag, we'll print the results to stdout instead.
+$address = 'complex@eyrie.org';
+
+
+############################################################################
+# Implementation
+############################################################################
+
+require 5.004;
+
+use strict;
+use vars qw($address @directories $version);
+
+use Date::Parse;
+use POSIX qw(strftime);
+
+# We assume that we're supposed to mail the results unless $address is empty
+# or we're given a -p flag on the command line.
+if ($ARGV[0] eq '-p') {
+    shift;
+    $address = '';
+}
+
+# We assume we're supposed to base our calculations on today unless we're
+# given a date in some form on the command line.  If we are, then we'll take
+# that as the date.
+my $time = @ARGV ? str2time ("@ARGV") : time;
+my $yesterday = strftime ('%y-%m-%d', localtime ($time - 24 * 60 * 60));
+my $today = strftime ('%y-%m-%d', localtime $time);
+
+# Open up our output device.
+if ($address) {
+    open (OUT, '| /var/qmail/bin/qmail-inject $address')
+        or die "Can't open output: $!\n";
+    print OUT "To: complex\@eyrie.org\n";
+    print OUT "From: Automated Log Scan <eagle\@eyrie.org>\n";
+    print OUT "Subject: Log scan for $yesterday (6am) to $today (6am)\n\n";
+} else {
+    open (OUT, ">&STDOUT") or die "Can't dup stdout: $!\n";
+    print OUT "Log scan for $yesterday (6am) to $today (6am)\n\n";
+}
+
+# We'll check each directory on the list in turn for logs in the right
+# timeframe.  We'll be storing the current tag for a channel, the start
+# time, and the stop time in a hash called %channel.
+for my $directory (@directories) {
+    my (%channel, @channel);
+    
+    # Start by finding the appropriate logs.
+    opendir (DIR, $directory) or die "Cannot open $directory: $!\n";
+    my ($ylog, $tlog);
+    for (readdir DIR) {
+        /^$yesterday/o and $ylog = $_;
+        /^$today/o     and $tlog = $_;
+    }
+    closedir DIR;
+
+    # Now scan yesterday's log up until 6am, keeping track of what channels
+    # everything is on.
+    @ARGV = ("$directory/$ylog", "$directory/$tlog");
+    my $count = 0;
+    while (<>) {
+        if (/^% Channel (\d+): \[(.*)\]$/) {
+            next if $channel[$1];
+            $channel{" \0" . $1} = [ $1, $2, 'yesterday' ];
+            $channel[$1] = " \0" . $1;
+            $count++ if ($1 < 1 || $1 > 2);
+        } elsif (/- Starting to log channel (\d+) \[(.*)\] at (.*) by/) {
+            next if $channel[$1];
+            my $start = str2time ($3);
+            $channel{$start . "\0" . $1} = [ $1, $2, $start ];
+            $channel[$1] = $start . "\0" . $1;
+            $count++ if ($1 < 1 || $1 > 2);
+        } elsif (/- Ending log of channel (\d+) \[.*\] at (.*) by/) {
+            next unless $channel[$1];
+            push (@{$channel{$channel[$1]}}, str2time ($2));
+            undef $channel[$1];
+        }
+    }
+
+    # If we found any channels, print out the results.
+    next unless $count;
+    my ($server) = ($directory =~ m%([^/]+)$%);
+    my $startcut = str2time ("6:00am $yesterday");
+    my $stopcut = str2time ("6:00am $today");
+    print OUT "On $server:\n\n";
+    for (sort keys %channel) {
+        my ($channel, $topic, $start, $stop) = @{$channel{$_}};
+        next if ($stop && $stop < $startcut);
+        next if ($start > $stopcut && $start ne 'yesterday');
+        my ($startnice, $stopnice);
+        if ($start eq 'yesterday') {
+            $startnice = '  ---  ';
+        } else {
+            $startnice = lc strftime ('%I:%M%p', localtime $start);
+            $startnice =~ s/^0/ /;
+        }
+        if ($stop) {
+            $stopnice = lc strftime ('%I:%M%p', localtime $stop);
+            $stopnice =~ s/^0/ /;
+        } else {
+            $stopnice = '  ---  ';
+        }
+        print OUT '    ';
+        print OUT ' ' if ($channel < 10);
+        print OUT "/$channel ($startnice to $stopnice) $topic\n";
+    }
+    print OUT "\n\n";
+}
