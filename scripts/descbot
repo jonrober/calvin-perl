@@ -198,10 +198,10 @@ sub parse {
 
 # We actually want to run as a daemon, so fork ourselves, exit the parent,
 # and close the standard file handles.
-#fork && exit;
-#close STDIN;
-#close STDOUT;
-#close STDERR;
+fork && exit;
+close STDIN;
+close STDOUT;
+close STDERR;
 
 # Initialize the manager and create and connect the clients.  Connections
 # should be specified at the end of the script, one per line, in the form
