@@ -1,0 +1,127 @@
+#!/usr/bin/perl -w
+$version = '$Id$';
+#
+# descbot -- A Calvin bot to send character descriptions on request.
+#            Copyright 1996 by Russ Allbery <rra@cs.stanford.edu>
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the same terms as Perl itself.
+
+require 5.002;
+use Calvin::Client;
+use Calvin::Parse;
+use strict;
+use vars qw($calvin $version);
+
+$calvin = new Calvin::Client;	# Global Calvin client object.
+
+{
+    my $host  = shift || 'cain.cs.columbia.edu';
+    my $port  = shift || 5302;
+    my $nick  = shift || 'desc';
+    my $retry = 1;
+    my $root  = '/ftp/pub/complex/descs';
+
+    # Set up the fallback nick handler.
+    my $fallback = sub { return ($_[0] . '_') };
+
+    # Loop forever, since the bot should never exit except through manual
+    # intervention.
+    while (1) {
+	if ($calvin->connect ($host, $port, $nick, $fallback)) {
+	    $calvin->msg ($nick, "Testing");
+	    print "Connected\n";
+	    
+	    # The actual guts of the bot.  Scan for private messages
+	    # addressed to us which don't begin with "- ".
+	    my ($code, $user, $message);
+	    while (($code, $user, $message) = $calvin->read) {
+		next unless ($code == &C_WHIS);
+		next if ($user eq $nick);
+		next if ($message =~ /^- /);
+
+		if ($message =~ /^quit(\s|$)/i) {
+		    $calvin->quit ("Shutting down at ${user}'s request.");
+		    $calvin->shutdown;
+		    exit;
+		} elsif ($message =~ /^help(\s|$)/i) {
+		    &send_help ($user);
+		} elsif ($message =~ /^types(\s|$)/i) {
+		    &send_types ($user, $root);
+		} elsif ($message =~ /^list(?:\s+(\S+))?/i) {
+		    my $type;
+		    ($type = lc $1) =~ tr%/%%d if $1;
+		    $type = 'default' unless $type;
+		    if ($type !~ /^\./ && -r "$root/$type" && -d _) {
+			&send_list ($user, "$root/$type");
+		    } else {
+			$calvin->msg ($user, "Unknown type $type");
+		    }
+		} else {
+		    my ($char, $type) = ($message =~ /^\s*(\S+)(?:\s+(\S+))?/);
+		    $type = 'default' unless $type;
+		    ($type = lc $type) =~ tr%/%%d;
+		    ($char = lc $char) =~ tr%/%%d;
+		    if (-r "$root/$type/$char" && -f _) {
+			&send_file ($user, "$root/$type/$char");
+		    } else {
+			$calvin->msg ($user, "Unknown character $char");
+		    }
+		}
+	    }
+
+	    # When we reach this point, we've lost our connection.  Reset
+	    # the various "keep-trying-to-connect" variables.
+	    $retry = 1;
+	}
+
+	# Wait a bit before trying to reconnect.
+        sleep $retry;
+        
+        # Exponential backoff in the waiting time, up to ~15 minutes
+        if ($retry < 1024) { $retry *= 2 }
+    }
+}
+
+
+# Send a description file.
+sub send_file {
+    my ($user, $file) = @_;
+    my $desc = '';
+
+    open (DESC, $file) or return undef;
+    while (<DESC>) {
+	next if /^\s*$/;
+	chomp;
+	if (/\.$/) { $_ .= ' ' }
+	$desc .= $_ . ' ';
+    }
+    chop $desc;
+    $calvin->msg ($user, $desc);
+}
+
+
+# Send a directory listing of characters.
+sub send_list {
+    my ($user, $dir) = @_;
+
+    opendir (DIR, $dir) or return undef;
+    my @chars = sort grep { ! /^\./ && -f "$dir/$_" && -r _ } readdir(DIR);
+    $calvin->msg ($user, "There are descriptions for:  @chars");
+}
+
+# Send a list of all types to the user.
+sub send_types {
+    my ($user, $root) = @_;
+
+    opendir (DIR, $root) or return undef;
+    my @types = sort grep { ! /^\./ && -d "$root/$_" && -r _ } readdir(DIR);
+    $calvin->msg ($user, "Description types:  @chars");
+}
+
+# Send help.
+sub send_help {
+    my ($user) = @_;
+    $calvin->msg ($user, "Syntax:  <command>  OR  <character> <type>");
+    $calvin->msg ($user, "Valid commands:  help, list <type>, types");
+}
