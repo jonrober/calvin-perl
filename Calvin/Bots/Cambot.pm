@@ -55,8 +55,8 @@ sub get_logname {
     my ($time) = @_;
     my ($sec, $min, $hour, $day, $month, $year) = localtime($time);
     $month++;
-    if ($month < 10)   { $month = "0".$month }
-    if ($day < 10)     { $day   = "0".$day   }
+    $month = sprintf ("%02d", $month);
+    $day   = sprintf ("%02d", $day);
     $year += 1900;
     my $base = $self->basename();
     my $logname = "$year-$month/$year-$month-$day-$base.log";
@@ -66,10 +66,11 @@ sub get_logname {
 
 sub get_offsetname {
     my $self = shift;
-    my ($sec, $min, $hour, $day, $month, $year) = localtime(time);
+    my ($time) = @_;
+    my ($sec, $min, $hour, $day, $month, $year) = localtime($time);
     $month++;
-    if ($month < 10)   { $month = "0".$month }
-    if ($day < 10)     { $day   = "0".$day   }
+    $month = sprintf ("%02d", $month);
+    $day   = sprintf ("%02d", $day);
     $year += 1900;
     my $base = $self->basename();
     my $logname = "$year-$month/.offset-$year-$month-$day-$base.log";
@@ -373,9 +374,18 @@ sub spam_log {
 #  message, or show all channels the bot is on and their tags.
 sub show_tag {
     my $self = shift;
-    my ($client, $user, $channel) = @_;
-    my $tag;
-    if (!defined $channel) { $channel = '' }
+    my ($client, $user, $channel, $passwd) = @_;
+    my ($tag);
+
+    if ($self->recall_passwd ne '') {
+        if (!defined $passwd) {
+            $client->msg ($user, "Error: Password required.");
+            return;
+        } elsif (crypt($passwd, 'jr') ne $self->recall_passwd) {
+            $client->msg ($user, "Error: Bad password.");
+            return;
+        }
+    }
 
     # See if the user has asked for the tag of a certain channel.
     if (($channel !~ /\D/) and ($channel >= 0) and
@@ -390,13 +400,8 @@ sub show_tag {
     } elsif ($channel eq '*') {
         for my $key (0 .. $self->high_channel) {
             if ($tag = $self->on_channel($key)) {
-
-                # Do neat keen pretty formatting.
-                if ($key < 10) {
-                    $client->msg ($user, "Channel  $key: [$tag].\n");
-                } else {
-                    $client->msg ($user, "Channel $key: [$tag].\n");
-                }
+                my $msg = sprintf ("Channel %2d: [%s].", $key, $tag);
+                $client->msg ($user, $msg);
             }
         }
 
@@ -421,7 +426,7 @@ sub check_time {
         $self->fname($logname);
         
         # Create a temporary filehandle to write the opening message and tag
-        #  spams.  This is so that calsplit won't have to do any of its happy
+        #  spams.  This is so that calsplit won't have to do any happy
         #  loops waiting for the new file to be created when it reaches the
         #  closing message of the old -- the new file will exist before the
         #  old has the closing message written to.
@@ -480,7 +485,7 @@ sub check_time {
         # Close the old offset file and open the new offset file.
         my $offset_fh = $self->{OFFSET_FILE};
         $offset_fh->close;
-        my $offsetname = $self->logdir.'/'.$self->get_offsetname;
+        my $offsetname = $self->logdir.'/'.$self->get_offsetname(time);
         $offset_fh = new IO::File $offsetname, "a", 644;
         if (!defined $offset_fh) {
             $client->quit("Exiting: Cambot could not open offset file $offsetname.\n");
@@ -546,7 +551,7 @@ sub openlog {
 
     $self->{FILE} = $fh;
 
-    my $offsetname = $self->logdir.'/'.$self->get_offsetname;
+    my $offsetname = $self->logdir.'/'.$self->get_offsetname(time);
     my $offset_fh = new IO::File $offsetname, "a", 644;
     if (!defined $offset_fh) {
         $client->quit("Exiting: Cambot could not open offset file $offsetname.\n");
