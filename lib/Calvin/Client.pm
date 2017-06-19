@@ -31,8 +31,7 @@ use vars qw(@ISA $ID $VERSION $BUFFER_SIZE $TIMEOUT);
 
 @ISA = qw(Calvin::Parse);
 
- $ID          = '$Id$';
-($VERSION     = (split (' ', $ID))[2]) =~ s/\.(\d)$/.0$1/;
+($VERSION = (split (' ', q$Revision: 0.8 $ ))[1]) =~ s/\.(\d)$/.0$1/;
  $BUFFER_SIZE = 256;
  $TIMEOUT     = 60;		# One minute timeout on read and write.
 
@@ -74,7 +73,7 @@ sub connect {
     if (not defined $self->{host}) { die "No host defined" }
     if (not defined $self->{port}) { die "No port defined" }
     if (not defined $self->{nick}) { die "No nick defined" }
-    
+
     # Open connection.
     $self->tcp_connect ($self->{host}, $self->{port}) or return undef;
 
@@ -97,7 +96,7 @@ sub connect {
 	    return undef;
 	}
         $self->raw_send ("$self->{nick}\n");
-        
+
 	# We should now see either the "nickname in use" message or the
 	# welcoming "you are now known as" message.  If we see "nickname in
 	# use", we need to call $fallback to change the nick and try again.
@@ -105,11 +104,9 @@ sub connect {
 	# connection, return undef.
 	my %newline = $self->read;
         if (!exists $newline{'code'}) {
-            print "Shutdown\n";
             $self->shutdown;
 	    return undef;
         } elsif ($newline{'code'} != C_S_NICK) {
-            print "Nonick: $newline{'code'}\n";
 	    if ($self->{fallback}) {
 		&{$self->{fallback}} ($self->{nick});
 		redo;
@@ -145,7 +142,7 @@ sub read {
     # Grab a line of output.
     my $line;
     unless ($self->raw_read (\$line)) { return undef }
-    
+
     # Try to parse it.
     my %result = Calvin::Parse::parse($line);
 
@@ -283,7 +280,7 @@ sub raw_send {
 
     # Handle both literal strings and passed references to strings.
     my $buf = ref $message ? $message : \$message;
-    
+
     # It's possible for write(2) to return a fewer number of written bytes
     # than the size of the buffer being written.  To allow for that, we need
     # to keep writing until either the entire buffer has been written or we
@@ -333,11 +330,11 @@ sub tcp_connect {
     my $proto = getprotobyname ('tcp')             or return undef;
     my $socket = new IO::Handle;
     socket ($socket, PF_INET, SOCK_STREAM, $proto) or return undef;
-    connect ($socket, $paddr)                      or return undef;
+    CORE::connect ($socket, $paddr)                or return undef;
 
     # Set the socket to nonblocking.
     fcntl ($socket, F_SETFL, O_NONBLOCK)           or return undef;
-    
+
     # Unbuffer the created file handle and save it in the object.
     $socket->autoflush;
     $self->{fh} = $socket;
