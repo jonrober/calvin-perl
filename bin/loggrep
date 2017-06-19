@@ -1,0 +1,56 @@
+#!/usr/bin/perl -w
+
+die "Usage: loggrep [options] <search string> <file>\n" if (@ARGV < 2);
+
+my $dir = '';
+my $options = '';
+while ($ARGV[0] =~ /^-/) { $options .= shift(@ARGV).' ' }
+
+$search = shift;
+$search = "\"$search\"";
+
+$glob_file = shift;
+@oldfile = split(/\//, $glob_file);
+$glob_file = $oldfile[$#oldfile];
+for (my $i = 0; $i < $#oldfile; $i++) { $dir .= $oldfile[$i]."/" }
+if ($dir eq '')                       { $dir = '.'               }
+else                                  { $dir =~ s/\/$//          }
+$file_re = fileglob_to_re($glob_file);
+
+recurse_dirs('./');
+
+sub grep_files {
+    my ($fname) = @_;
+    my $output = '';
+
+    if ($fname =~ /\.gz$/) { $output = `gzip -dc $fname | grep $options$search` }
+    else                   { $output = `grep $options$search $fname`            }
+    #    print "$!\n";
+    
+    @grep_result = split (/\n/, $output);
+    #foreach (@grep_result) { print "$File::Find::dir/$fname: $_\n" }
+    my $shortname = $fname;
+    $shortname =~ s/^((.+?\/)*)(.*)$/$3/;
+    foreach (@grep_result) { print "$shortname: $_\n" }
+}
+
+sub fileglob_to_re {
+    my ($tmp) = @_;
+
+    $tmp =~ s#([./^\$()])#\\$1#g;
+    $tmp =~ s/([?*])/.$1/g;
+    return "^$tmp\$";
+}
+
+sub recurse_dirs {
+    my ($dir) = @_;
+    my (@dirs, @files);
+    opendir (DIR, $dir) or die "Error looking at dirs: $!.\n";
+    @dirs =  sort grep { -d "$dir$_" && !/^\./ } readdir DIR;
+    closedir DIR;
+    foreach (@dirs)  { recurse_dirs ("$dir$_/") }
+    opendir (DIR, $dir) or die "Error looking at dirs: $!.\n";
+    @files = sort grep { -f "$dir$_" && /$file_re/ } readdir DIR;
+    closedir DIR;
+    foreach (@files) { grep_files   ("$dir$_") }
+}
