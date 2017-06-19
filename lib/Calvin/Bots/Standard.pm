@@ -12,7 +12,7 @@ require 5.002;
 # Modules and declarations
 ############################################################################
 
-use POSIX;
+use POSIX qw(strftime);
 use Calvin::Client;
 use Calvin::Manager;
 use Calvin::Parse qw (:constants);
@@ -127,7 +127,7 @@ sub time_cmd {
     my $self = shift;
     my ($client, $user) = @_;
     my $date_format = "%a %b %e %I:%M %p %Z";
-    my $time = &POSIX::strftime($date_format, localtime());
+    my $time = strftime($date_format, localtime());
     $client->msg ($user, "$time.");
 }
 
@@ -308,29 +308,46 @@ sub handle_line {
     my ($manager, $client, $line, %result) = @_;
 
     if (($result{'code'} == C_NICK_CHANGE) &&
-        ($result{'name'} eq $client->{nick})) {
-        $client->{nick} = $result{'s1'};
+        ($result{'s1'} eq $client->{nick})) {
+        $client->{nick} = $result{'name'};
 
     # If we've signed off deliberately, kill this client.
     } elsif (($result{'code'} == C_SIGNOFF) &&
              ($result{'name'} eq $client->{nick}) &&
              ($result{'s1'} =~ /^Exiting( |:)/)) {
-        my $i = 0;
-        foreach (@{$manager->{clients}}) {
-            if ($_ == $client) { last }
-            $i++;
-        }
-        splice(@{$manager->{clients}}, $i, 1);
+
+        $manager->kill_client($client);
+        
+        #        my $i = 0;
+        #        my $fairness = $manager->{client};
+        #        foreach (@{$manager->{clients}}) {
+        #            if ($_ == $client) { last }
+        #            $i++;
+        #        }
+
+        # If the fairness pointer points after the removed client, move it
+        #  back one to have it point at the same client.  If the fairness
+        #  pointer *is* the client and the client was the last element,
+        #  move it back one.  Otherwise leave the pointer alone, though
+        #  it'll be somewhat messed up if the pointer was at the client.
+        #  Can't be helped.  Then zap the client from the arrays of clients
+        #  and dead clients.
+        #        if ($i < $fairness) {
+        #            $manager->{client}--;
+        #        } elsif ($i == $fairness && $i == $#{$manager->{clients}}) {
+        #            $manager->{client}--;
+        #        }            
+        #        splice(@{$manager->{clients}}, $i, 1);
+        #        splice(@{$manager->{dead}},    $i, 1);
 
         # If we've killed all the clients, we don't really have any
-        #  reason to be alive, so exit.
+        #  reason to be alive, so exit.  Think there's something wrong
+        #  here, which is why the print to file.
         if (!@{$manager->{clients}}) {
-            open(TEST, '> /home/calvin/dead.uberbot') || die "Could not open file $!\n";
-            print TEST "Exiting: All clients dead.\n";
-            close(TEST);
             exit(0);
         }
-
+        return 1;
+        
     } elsif (($result{'code'} == C_WHIS) && (!$result{'on_channel'}) &&
              ($result{'s1'} !~ /^- /)) {
 
@@ -338,7 +355,7 @@ sub handle_line {
         my $user    = $result{'name'};
         
         # Parse the message sent us.
-        $message =~ s/\t/\s/;
+        $message =~ s/\t/ /;
         $message =~ s/\s+$//;
         my ($command, $type, @rest) = split (/ +/, $message);
 
@@ -371,8 +388,8 @@ sub handle_line {
             #  we should instead have a way to set up new bots from
             #  uberbot.  Ones where we don't have to start a new script,
             #  but can load, say, a fengbot when needed on the fly.
-            # Yes, we now need this and we do indeed do what the other
-            #  comment postulated.  I'm leaving it as a reminder, deal. :)
+            # Update: We now do this in uberbot itself, comment left for
+            #  'membering how I came up with the idea.
             return 1;
         }
     }
