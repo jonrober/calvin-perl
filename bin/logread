@@ -1,0 +1,854 @@
+#!/usr/bin/perl
+
+# Logread v3.12 -- this program is designed to allow one to browse through
+#  logs on a day by day basis, and save them to mail, plaintext files, or
+#  HTML files.
+# Usage: logread [-hp] [date]
+#  The -p flag will search only for logs in the current directory and subdirs
+#  of the current directory.
+#  The -h flag will display a help line.
+#  Date will start viewing on the specified date, in YYYY-MM-DD format.  If
+#  no date is specified, the current day will be used.
+
+use 5.010;
+use autodie;
+use strict;
+use warnings;
+
+use lib '/home/jonrober/perl-stuff/';
+use vars qw($date @dirs @basedirs $file $continue);
+
+use Curses;
+use Curses::UI;
+use Cwd;
+use Data::Dumper;
+use File::Temp qw( :POSIX );
+use Calvin::Logs;
+use Calvin::Logs::Split;
+
+use Calvin::Logs::Logread qw(&read_prefs &write_prefs
+	&logs_around_day &channels_for_day &last_file_subdirs &action_quit);
+
+# Ignore any pipings.. we're setting this up for splitting logs out, later.
+local $SIG{PIPE} = 'IGNORE';
+$| = 1;
+
+# Load our preferences, or defaults if none are set.
+my %prefs = read_prefs;
+
+# Set up default directories to view whether or not they're in the config file.
+@basedirs = ('/srv/calvin/logs/fkids/', '/srv/calvin/logs/complex/');
+
+# Grab the directories out of preferences, if they are set there.
+if ($prefs{'logdir'}) {
+    @dirs = @{$prefs{'logdir'}};
+} else {
+    @dirs = ();
+}
+
+# If asking for help, die with a help message.
+if (@ARGV && $ARGV[0] =~ /^-.*h/) {
+    my $shortname;
+    $shortname = $0;
+    $shortname =~ s%.*/%%;
+    die "Usage: $shortname [<YYYY-MM-DD>]\n";
+
+# If we've given a -p, then add our current directory to the dirs to look at.
+} elsif (@ARGV && $ARGV[0] =~ /^-p/i) {
+	my $curdir = cwd();
+	$curdir =~ s/^\w://;
+	$curdir .= '/' unless $curdir =~ m{/$};
+
+    shift;
+    push (@dirs, $curdir);
+}
+
+# Now look for the children of any directories, whether base or user specified,
+# to be our actual directory set.
+my %subdirs;
+my $dirobj = Calvin::Logs->new;
+for my $dir (@basedirs, @dirs) {
+	$dirobj->dir($dir);
+	for my $subdir ($dirobj->subdirs) {
+		$subdirs{$subdir} = 1;
+	}
+}
+@dirs = keys %subdirs;
+
+# Get the date to start on.  First we see if it's on the command line and
+# properly formatted, erroring if not...
+if (@ARGV) {
+    if ($ARGV[0] =~ /^\d{4}-\d{2}-\d{2}$/) {
+        $date = $ARGV[0];
+    } else {
+        die "'".$ARGV[0]."' is not a date in form YYYY-MM-DD.\n";
+    }
+
+# And if we haven't specified the date to start on on the command line, we
+# start on the last date in logs.  last_file_subdirs will find the most
+# recent log in our search directories, and then we steal its date out of the
+# file name via regular expression.
+} else {
+    $file = last_file_subdirs (@dirs);
+    ($date) = ($file =~ m#^.*/(\d{4}-\d{2}-\d{2})-\S+\.log$#);
+}
+
+# And now make sure any errors don't mess up our screen.  We'll change this
+#  for debugging, when need be.
+#open STDERR, "> /dev/null";
+open STDERR, "> logread.errors";
+
+#############################################################################
+# Basic Screen Setup
+#############################################################################
+
+# Create the root object for all our user interfacing.
+my $CUI = new Curses::UI (
+			   -clear_on_exit => 1,
+			   -debug => 0,
+			   -intellidraw => 1,
+                         );
+
+# Creating each window.. this just makes the existences of the windows
+#  themselves.  We actually define what goes into each window further down,
+#  only when specific functions are called, since the contents will vary
+#  depending on what day we're viewing.
+
+# Create the main window...
+$CUI->add(
+		  'mainwindow', 'Window',
+		  -title => "Logread",
+		  -intellidraw  => 1,
+		  -border       => 1,
+		  -titlereverse => 0,
+		  -padtop       => 0,
+		  -padbottom    => 0,
+		  -ipad         => 1
+		  );
+
+# Create the preferences window...
+$CUI->add(
+		  'preferences', 'Window',
+		  -title => "Logread - Preferences",
+		  -intellidraw  => 1,
+		  -border       => 1,
+		  -titlereverse => 0,
+		  -padtop       => 0,
+		  -padbottom    => 0,
+		  -ipad         => 1
+		  );
+
+# Create the window for querying a new preferences value.
+$CUI->add(
+		  'preferences_query', 'Window',
+		  -title => "Logread - Preferences",
+		  -centered     => 1,
+		  -height       => 9,
+		  -width        => 60,
+		  -border       => 1,
+		  -ipad         => 2,
+		  );
+
+# Create the window where we ask for an address to mail a log to.
+$CUI->add(
+		  'mail_query', 'Window',
+		  -title => "Mail a log...",
+		  -centered     => 1,
+		  -height       => 9,
+		  -width        => 60,
+		  -border       => 1,
+		  -ipad         => 1,
+		  );
+
+########################################################################
+# Menubar.
+########################################################################
+
+# First, let's define the File menu.  -label is what appears, -value is what
+#  selecting that item will call.
+my $file_menu = [
+		 {
+		     -label => 'Save Log',
+		     -value => sub { save_action('plain_file') }
+		 },
+		 {
+		     -label => 'Save Log as HTML',
+		     -value => sub { save_action('HTML_file') }
+		 },
+		 {
+		     -label => 'Mail Log',
+		     -value => sub { mail_querybox() }
+		 },
+		 {
+		     -label => 'Quit program',
+		     -value => sub { action_quit($CUI) }
+		 },
+		 ];
+
+# And the options menu, containing the date select calendar.
+my $options_menu = [
+		    { -label => 'Calendar', -value => sub{ calendar_view() } },
+		    { -label => 'Preferences', -value => sub { make_prefs_menu() } }
+		    ];
+
+# Put them all together and what have you got?  The whole menu!
+my $main_menu = [
+	    { -label => 'File',           -submenu => $file_menu         },
+	    { -label => 'Options',        -submenu => $options_menu      },
+	    ];
+
+# ...which we now add to the UI.
+$CUI->add('main_menu', 'Menubar', -menu => $main_menu);
+
+########################################################################
+# Final UI Setup and kickoff
+########################################################################
+
+# Setup keybindings
+$CUI->set_binding( sub{ action_quit($CUI) }, "\cQ" );
+$CUI->set_binding( sub{ action_quit($CUI) }, "q" );
+
+$CUI->set_binding( sub{ shift()->root->focus('main_menu') }, "\cX" );
+$CUI->set_binding( sub{ calendar_view() }, "\cC" );
+#$CUI->set_binding( sub{ calendar_view() }, "c" );
+$CUI->set_binding( sub{ save_action('plain_file') }, "\cS" );
+$CUI->set_binding( sub{ help_view() }, "\cH" );
+
+# Bindings to auto-jump to items.
+$CUI->set_binding( sub{ menu_number(1) }, "1" );
+$CUI->set_binding( sub{ menu_number(2) }, "2" );
+$CUI->set_binding( sub{ menu_number(3) }, "3" );
+$CUI->set_binding( sub{ menu_number(4) }, "4" );
+$CUI->set_binding( sub{ menu_number(5) }, "5" );
+$CUI->set_binding( sub{ menu_number(6) }, "6" );
+$CUI->set_binding( sub{ menu_number(7) }, "7" );
+$CUI->set_binding( sub{ menu_number(8) }, "8" );
+$CUI->set_binding( sub{ menu_number(9) }, "9" );
+
+# At long last, everything is defined.  Create the main menu to start with,
+#  give it focus, and drop into the loop the toolkit provides for handling
+#  the UI.
+make_main_menu($date);
+$CUI->getobj('mainwindow')->focus;
+$CUI->mainloop();
+
+# From here on out, everything is in subroutines called  as a result of
+#  user input.
+
+#############################################################################
+# Main screen
+#############################################################################
+
+# The function that gets called when we've made a selection in the main list.
+sub listbox_callback() {
+    my $listbox = shift;
+    my $label = $listbox->parent->getobj('navlabel');
+    my @sel = $listbox->get;
+    @sel = ('<none>') unless @sel;
+    my $selected = $sel[0];
+
+    # If we are given a date, then see if the date is null.  If not, remake
+    #  the menu for that date.
+	my $userdata = $listbox->parent->userdata;
+    if ($userdata->[$selected]{'date'}) {
+		my $date = $userdata->[$selected]{'date'};
+		if ($date ne 'null') {
+	    	make_main_menu($date, $selected);
+
+	    	$label->text("Logs for $date");
+			$CUI->getobj('mainwindow')->focus;
+		}
+
+    } else {
+		# Snatch up all the useful information from our userdata.
+		my $channel  = $userdata->[$selected]{'channel'};
+	    my $offset   = $userdata->[$selected]{'offset'};
+	    my $fname    = $userdata->[$selected]{'file'};
+	    my $base     = $userdata->[$selected]{'base'};
+
+		# Drop out of curses mode just long enough to split out the log, then
+		#  return back to curses mode.
+        $CUI->leave_curses();
+
+		# Set up our channel split.
+		my $split = Calvin::Logs::Split->new;
+		$split->preferences(\%prefs);
+		$split->offset($offset);
+		$split->filename($fname);
+		$split->channel($channel);
+
+		$split->do_split;
+        $CUI->reset_curses();
+
+		# Rebuild the main menu, both to deselect this selection and in
+		#  order to pick up any new channels begun while we were reading.
+		make_main_menu($date, $selected);
+    }
+
+}
+
+# Define everything to appear on the main window.  All the menus of channels
+#  and dates, and the callbacks to select each.
+sub make_main_menu {
+    my ($date, $sel) = @_;
+    $sel = 0 unless $sel;
+
+    # Go through the items in the menu and delete each, if they already exist.
+    #  Clearing this screen to start fresh.
+	my $window = $CUI->getobj('mainwindow');
+    if ($window->getobj('navlabel')) { $window->delete('navlabel') }
+    if ($window->getobj('navlist'))  { $window->delete('navlist')  }
+
+    # First add the label to the screen of what date we're looking at...
+    $window->add(
+		    'navlabel', 'Label',
+		    -width => -1,
+		    -bold => 1,
+		    -text => "Logs for $date",
+		    -intellidraw  => 1,
+		    );
+
+    # Initialize some data.  %labels will hold all of the labels that appear
+    #  in-menu, channels will be a simple array holding the keys for %labels.
+    my (%labels, @channels);
+
+    # Find the dates we can go to and add them to menu.
+    my (@logs) = logs_around_day($date, @dirs);
+    my $i;
+    for ($i = 0; $i < @logs; $i++)   {
+		$labels{$i} = $i+1 . ")  " . $logs[$i]{'display'};
+		push (@channels, $i);
+    }
+
+    # Find the channels to split and add them to the menu.  Very much the
+    #  same as last, save making the keys include the ending value of the
+    #  prior loop, to keep things sequential.
+    my @splits = channels_for_day($date, @dirs);
+    for (my $j = 0; $j < @splits; $j++) {
+		my $sum = $i + $j;
+		$labels{$sum} = $sum+1 . ")  " . $splits[$j]{'display'};
+		push (@channels, $sum);
+    }
+
+	# Save our menu data so that it can be looked up when an item is selected.
+	my @userdata = (@logs, @splits);
+	$window->userdata(\@userdata);
+
+    # Now that we have the information we need, build the list of channels
+    #  and dates.  The function listbox_callback is called when we select an
+    #  item.
+    my $navlist = $window->add(
+				  'navlist', 'Listbox',
+				  -y => 2,
+				  -values  => \@channels,
+				  -labels  => \%labels,
+				  -title   => 'Channels',
+				  -vscrollbar => 1,
+				  -onchange   => \&listbox_callback,
+				  -intellidraw  => 1,
+				  );
+
+    # Now that the list is built, if we were sent a previous selection, slip
+    #  through the list until we find it...
+    for (my $i = 0; $i < $sel; $i++) {
+		$navlist->option_next();
+    }
+
+    # Then give the window focus to make sure it's on top and the changes are
+    #  updated.
+    $navlist->focus();
+}
+
+# Given a number, drop to the current list item in that list...
+sub menu_number {
+    my ($num) = @_;
+
+	my $window = $CUI->getobj('mainwindow');
+    my $navlist = $window->getobj('navlist');
+
+    # First, we need to make sure that we actually have enough items in the
+    #  list to move on...
+    my $lines = $navlist->number_of_lines();
+    if ($lines >= $num) {
+
+        # Select the correct item in the list, moving to list start first...
+		$navlist->option_first();
+		for (my $i = 0; $i < $num - 1; $i++) {
+	    	$navlist->option_next();
+		}
+    }
+
+    # Update the list for the changes made.
+    $navlist->focus();
+}
+
+#############################################################################
+# Save Screen
+#############################################################################
+
+# The function that gets called when we've made a selection in the save
+#  list...  Takes the item selected, splits it out and drops to a file that
+#  we specify here.
+sub save_action {
+    my ($savetype) = @_;
+
+    # Grab the listbox for the Main view.  Then grab whatever item the cursor
+    #  is currently on from that box.
+	my $window = $CUI->getobj('mainwindow');
+    my $listbox = $window->getobj('navlist');
+    my $selected = $listbox->get_active_value();
+
+    # Get the information for this selection.  We stored all relevant data for
+	# our choices in the userdata.
+	my $userdata = $window->userdata;
+	my $channel  = $userdata->[$selected]{'channel'};
+    my $offset   = $userdata->[$selected]{'offset'};
+    my $fname    = $userdata->[$selected]{'file'};
+    my $base     = $userdata->[$selected]{'base'};
+
+    # Select the file you wish to save to, then split to that file...
+    my $savefile = $CUI->savefilebrowser("Select a file to save as:");
+
+	# Set up the split and then run it.
+	my $split = Calvin::Logs::Split->new;
+	$split->preferences(\%prefs);
+	$split->offset($offset);
+	$split->filename($fname);
+	$split->channel($channel);
+	$split->do_split;
+
+    # Playing with things desperately to get the screen to properly
+    #  refresh after viewing.  It.. finally works.
+    refresh();
+    clear();
+
+    # Back to the main menu...
+    $window->focus();
+    $window->intellidraw();
+
+    # Should do exactly what the last two items did.  Remove these lines later
+    #  and make sure things don't go wrong.  (In case you couldn't tell, I had
+    #  frustration getting the refreshing to work right.)
+    my $menu = $listbox->parent->getobj('navlist');
+    $menu->focus();
+    $menu->intellidraw();
+}
+
+#############################################################################
+# Mail screen
+#############################################################################
+
+# The function that's called when we want to mail an item in the main nav list.
+#  grabs the item selected, splits it out, and mails it to a specified user.
+sub mail_action {
+    my ($mailto) = @_;
+
+    # Grab the listbox for the Main view.  Then grab whatever item the cursor
+    #  is currently on from that box.
+	my $window = $CUI->getobj('mainwindow');
+    my $listbox = $window->getobj('navlist');
+    my $selected = $listbox->get_active_value();
+
+    # Get the information for this selection.  We stored all our log
+	# information in the userdata.
+	my $userdata = $window->userdata;
+	my $channel  = $userdata->[$selected]{'channel'};
+    my $offset   = $userdata->[$selected]{'offset'};
+    my $fname    = $userdata->[$selected]{'file'};
+    my $base     = $userdata->[$selected]{'base'};
+
+    # Split the log out with a destination set to the supplied mail address.
+    do_split($channel, $offset, $fname, $base, '', 'mail', $mailto);
+
+    # Playing with things desperately to get the screen to properly
+    #  refresh after viewing.  It.. finally works.
+    refresh();
+    clear();
+
+    # Back to the main menu...
+    $window->focus();
+    $window->intellidraw();
+
+    # Should do exactly what the last two items did.  Remove these lines later
+    #  and make sure things don't go wrong.  (In case you couldn't tell, I had
+    #  frustration getting the refreshing to work right.)
+    my $menu = $listbox->parent->getobj('navlist');
+    $menu->focus();
+    $menu->intellidraw();
+}
+
+# Sets the window for a query box for asking for an address to mail a log to.
+sub mail_querybox {
+
+    # For each item in this window, see if it exists and delete if so.  Clears
+    #  out any old information if this isn't the first time we've called this
+    #  function.
+	my $window = $CUI->getobj('mail_query');
+    foreach my $control ('mail_label', 'mail_address', 'buttons') {
+		if ($window->getobj($control)) {
+	    	$window->delete($control);
+		}
+    }
+
+    # Add in the label for the add field..
+    $window->add(
+			  'mail_label', 'Label',
+			  -x => 0, -y => 0, -width => 20,
+			  -textalignment => 'left',
+			  -text => "Mail this log to:",
+			  );
+
+    # Add in the actual text box...
+    $window->add(
+			   'mail_address', 'TextEntry',
+			   -x => 14, -y => 0,
+			   -text => '',
+			   )->focus;
+
+    # And lastly, create the buttons for this window.
+    my $buttons = $window->add(
+	    'buttons', 'Buttonbox',
+	    -x => 14, -y => 2,
+	    -buttons => [
+			 {
+
+			     # OK Button - if clicked, grab the value of the
+			     #  mail address and make the mail with that value.
+			     -label => '< OK >',
+			     -onpress => sub {
+				 	my $obj = $window->getobj('mail_address');
+				 	my $mailto = $obj->get;
+				 	mail_action($mailto);
+			     },
+			 },
+			 {
+
+			     # Cancel button - Never mind, just focus on the
+			     #  main menu again.
+			     -label => '< Cancel >',
+			     -onpress => sub
+			     {
+					 $CUI->getobj('mainwindow')->focus;
+			     }
+			 },
+			 ],
+	    );
+
+    # And then focus on the menu we've just built, so the user can answer it.
+    $window->focus;
+}
+
+#############################################################################
+# Preferences screen
+#############################################################################
+
+# Really simple function that just takes a value and if it's true, returns
+#  Yes, otherwise returns No.  Used to map preferences to Yes/No for display.
+sub boolean_to_yesno {
+    my ($value) = @_;
+    if ($value) { return "Yes" }
+    else        { return "No"  }
+}
+
+# Sets the window for a query box for asking for a new value in preference
+#  strings.
+sub preferences_querybox {
+
+    my ($box_selected, $label, $field) = @_;
+
+    # For each item in this window, see if it exists and delete if so.  Clears
+    #  out any old information if this isn't the first time we've called this
+    #  function.
+	my $window = $CUI->getobj('preferences_query');
+    foreach my $control ('query_label', 'newterm', 'buttons') {
+		if ($window->getobj($control)) {
+	    	$window->delete($control);
+		}
+    }
+
+    # Add in the label that says which preference we are asking about...
+    $window->add(
+			   'query_label', 'Label',
+			   -x => 0, -y => 0, -width => 20,
+			   -textalignment => 'left',
+			   -text => $label,
+			   );
+
+    # Add the box where the user can enter the new value.
+    $window->add(
+			   'newterm', 'TextEntry',
+			   -x => 14, -y => 0,
+			   -text => '',
+			   )->focus;
+
+    # Add the buttons that let him save or cancel the entry he's made.
+    my $buttons = $window->add(
+	    'buttons', 'Buttonbox',
+	    -x => 14, -y => 2,
+	    -buttons => [
+			 {
+			     # OK Button - Copy the preference entered into the
+			     #  %prefs hash, then go back to the preferences
+			     #  menu.
+			     -label => '< OK >',
+			     -onpress => sub {
+				 	my $obj = $window->getobj('newterm');
+				 	$prefs{$field} = $obj->get;
+				 	make_prefs_menu($box_selected);
+			     },
+			 },
+			 {
+
+			     # Cancel Button - Go back to the prefs menu.  We
+			     #  don't need to rebuild the menu, since nothing
+			     #  has changed.
+			     -label => '< Cancel >',
+			     -onpress => sub
+			     {
+					 $CUI->getobj('preferences')->focus;
+			     }
+			 },
+			 ],
+	    );
+
+    # Focus on this window so that we can get the user input.
+    $window->focus;
+}
+
+
+# The function that determines what we do when an item is selected out of the
+#  preferences listbox.
+sub prefs_action {
+
+    # Get the listbox that called us, then grab the current selection from it.
+    my $listbox = shift;
+    my @sel = $listbox->get;
+    @sel = ('<none>') unless @sel;
+    my $selected = $sel[0];
+
+    # Grab the necessary fields from our menu data structure.
+	my $userdata = $listbox->parent->userdata;
+	my $action   = $userdata->{$selected}{'action'};
+    my $field    = $userdata->{$selected}{'field'};
+    my $label    = $userdata->{$selected}{'query'};
+
+    # If we chose to toggle a boolean-style field, just flip its value and
+    #  reload the menu.
+    if ($action eq 'toggle') {
+		if ($prefs{$field} == 1) {
+			$prefs{$field} = 0;
+		} else {
+			$prefs{$field} = 1;
+		}
+		make_prefs_menu($selected);
+
+    # If we have a string we need to change, then pull up a query for changing
+    #  it...
+    } elsif ($action eq 'text') {
+		preferences_querybox($selected, $label, $field);
+
+    # If we've selected to write preferences to their file, well.. we have
+    #  a function just for that.
+    } elsif ($action eq 'write_file') {
+        write_prefs(%prefs);
+		make_main_menu($date);
+
+    # If we've selected to leave the preferences file, then back to the main
+    #  menu we go!
+    } elsif ($action eq 'cancel_prefs') {
+		make_main_menu($date);
+    }
+
+}
+
+# Given the big setup of the preferences window data structure, yank out the
+#  display stuff only, to use in building the visible menu.
+sub prefs_display {
+    my (%prefs) = @_;
+    my (%display);
+
+    # Iterate through the preferences hash and drop each display item into a
+    #  more abbrieviated hash.
+    foreach my $key (keys %prefs) {
+		$display{$key} = $prefs{$key}{'display'};
+    }
+    return %display;
+}
+
+# Builds all the information we need for figuring out what to do when we have
+#  selected an item from the preferences.
+# For each item:
+#  display: What appears in the menu.
+#  action:  What we should do when this item is selected (the function
+#           prefs_action has information on what each does).
+#  field:   What field, if any, this item acts on.
+#  query:   What prompt will appear in a query box, if one is called to ask for
+#           entry on this item.
+sub prefs_information {
+    my (%prefs_menu);
+    %prefs_menu = (
+		   0 => {
+		       display => 'Back to channels...',
+		       action  => 'cancel_prefs',
+		       field   => '',
+		   },
+		   1 => {
+		       display => 'Write preferences to .logreadrc',
+		       action  => 'write_file',
+		       field   => '',
+		   },
+		   2 => {
+		       display => "Following: " . boolean_to_yesno($prefs{'follow'}),
+		       action  => 'toggle',
+		       field   => 'follow',
+		       query   => 'Following?',
+		   },
+		   3 => {
+		       display => "Following base channels: " . boolean_to_yesno($prefs{'follow_base'}),
+		       action  => 'toggle',
+		       field   => 'follow_base',
+		       query   => 'Following base?',
+		   },
+		   4 => {
+		       display => "Showing server messages: " . boolean_to_yesno($prefs{'show_serv'}),
+		       action  => 'toggle',
+		       field   => 'show_serv',
+		       query   => 'Showing server lines?',
+		   },
+		   5 => {
+		       display => "Showing server messages on base channels: " . boolean_to_yesno($prefs{'show_serv_base'}),
+		       action  => 'toggle',
+		       field   => 'show_serv_base',
+		       query   => 'Showing server lines on base?',
+		   },
+		   6 => {
+		       display => "Showing whispers: " . boolean_to_yesno($prefs{'show_whisp'}),
+		       action  => 'toggle',
+		       field   => 'show_whisp',
+		       query   => 'Showing whispers?',
+		   },
+		   7 => {
+		       display => "Removing player names: " . boolean_to_yesno($prefs{'remove_player'}),
+		       action  => 'toggle',
+		       field   => 'remove_player',
+		       query   => 'Removing player names?',
+		   },
+		   8 => {
+		       display => "Display fkids logs: " . boolean_to_yesno($prefs{'display_fkids'}),
+		       action  => 'toggle',
+		       field   => 'display_fkids',
+		       query   => 'Display FKids?',
+		   },
+		   9 => {
+		       display => "Flags to less: '" . $prefs{'less_flags'} . "'",
+		       action  => 'text',
+		       field   => 'less_flags',
+		       query   => 'Flags to less?',
+		   },
+		   10 => {
+		       display => "Line color: '" . $prefs{'normal_color'} . "'",
+		       action  => 'text',
+		       field   => 'normal_color',
+		       query   => 'Line color?',
+		   },
+		   11 => {
+		       display => "Server line color: '" . $prefs{'server_color'} . "'",
+		       action  => 'text',
+		       field   => 'server_color',
+		       query   => 'Server line color?',
+		   },
+		   12 => {
+		       display => "Whisper color: '" . $prefs{'whisp_color'} . "'",
+                       action  => 'text',
+                       field   => 'whisp_color',
+		       query   => 'Whisper color?',
+		   },
+		   13 => {
+		       display => "Wrap width: " . $prefs{'width'},
+                       action  => 'text',
+                       field   => 'width',
+		       query   => 'Wordwrap width?',
+		   },
+		   14 => {
+		       display => "Body CSS: '" . $prefs{'body_css'} . "'",
+		       action  => 'text',
+		       field   => 'body_css',
+		       query   => 'Body CSS?',
+		   },
+	       );
+}
+
+# Create the content that goes into the preferences menu, deleting the content
+#  if it already exists.
+sub make_prefs_menu {
+    # Grab any selection we've already made on this window.
+    my ($sel) = @_;
+    $sel ||= 0;
+
+	# If we've already created the items in this window before, delete them
+    #  now so that we may start fresh.
+	my $window = $CUI->getobj('preferences');
+    if ($window->getobj('prefslabel')) { $window->delete('prefslabel') }
+    if ($window->getobj('prefslist'))  { $window->delete('prefslist')  }
+
+    # Sets our background data menu now equal to the preferences menu.  Then
+    #  use that to create the labels and keys for the labels.
+	my %preferences = prefs_information;
+    my %labels = prefs_display(%preferences);
+    my @channels = sort { $a <=> $b } keys(%labels);
+	$window->userdata(\%preferences);
+
+    # First, we add the label.  Nothing special, just telling us what this is.
+    $window->add(
+		     'prefslabel', 'Label',
+		     -width => -1,
+		     -bold => 1,
+		     -text => "View/Edit My Preferences",
+		     -intellidraw  => 1,
+		     );
+
+    # Actually create the listbox.  When an item is selected, we call the
+    #  funcion prefs_action.
+    my $prefslist = $window->add(
+                                  'prefslist', 'Listbox',
+                                  -y           => 2,
+                                  -values      => \@channels,
+                                  -labels      => \%labels,
+                                  -title       => 'Preferences',
+                                  -vscrollbar  => 1,
+                                  -onchange    => \&prefs_action,
+                                  -intellidraw => 1,
+                                  );
+
+    # If we've had an option already selected from viewing this list already,
+    #  then scroll through the list until we've set the same item active.
+    for (my $i = 0; $i < $sel; $i++) {
+        $prefslist->option_next();
+    }
+
+    # And now that we've created the window's information, we want it to be
+    #  the window that we actually see.
+    $prefslist->focus();
+}
+
+########################################################################
+# Calendaring
+########################################################################
+
+# Simply brings up a calendar dialog (defined by toolkit), with its default
+#  set to our browsing date, and then if a value is returned by the calendar,
+#  sets our browsing date to *that*.
+sub calendar_view {
+    $date = $CUI->calendardialog(-date => $date);
+    make_main_menu($date) if $date;
+}
+
+########################################################################
+# Help Screen
+########################################################################
+
+# Brings up the help screen, which defines the various keys which may be used.
+sub help_view {
+    $CUI->status('This is a test.');
+    $CUI->nostatus;
+}
