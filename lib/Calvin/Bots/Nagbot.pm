@@ -131,8 +131,9 @@ sub do_ping {
         $command = $self->return_command ($user, $position);
         if ($command =~ /^ping (\d+) \Q$message\E$/) {
 
+            my $lowcase = lc $user;
             # User has exceeded maximum bad pings for this client.
-            if ($stat{$client}{$user} > $self->maxbad) {
+            if (lc $stat{$client}{$lowcase} > $self->maxbad) {
                 $self->delete_command ($user, $position);
             } else {
 
@@ -141,7 +142,7 @@ sub do_ping {
                 $client->msg ($user, "($position) Ping $interval -> $message");
                 $manager->enqueue ($interval * 60 + time(), sub { $self->do_ping ($manager, $client, $user, $message) });
             }
-            
+
         } elsif ($command =~ /^alarm .* \Q$message\E$/) {
             # Alarm command - We send the alarm and then delete the command.
             $client->msg ($user, "($position) Alarm -> $message");
@@ -158,6 +159,7 @@ sub do_ping {
 sub good_message {
     my $self = shift;
     my ($client, $user) = @_;
+    $user = lc $user;
     $stat{$client}{$user} = 0;
 }
 
@@ -166,8 +168,9 @@ sub good_message {
 sub bad_message {
     my $self = shift;
     my ($client, $user) = @_;
-    if (defined $stat{$client}{$user}) { $stat{$client}{$user}++ }
-    else { $stat{$client}{$user} = 1 }
+    $user = lc $user;
+    if (defined $stat{$client}{$user}) { $stat{$client}{$user}++   }
+    else                               { $stat{$client}{$user} = 1 }
 }
 
 ############################################################################
@@ -182,7 +185,7 @@ sub clear_message {
     my ($client, $user, @args) = @_;
     my $nick = $client->{nick};
     my $status;
-    if (defined @args) {
+    if (@args) {
         foreach my $num (@args) {
             if ($num !~ /\D/) {
                 $status = $self->delete_command ($user, $num);
@@ -225,9 +228,8 @@ sub signon_message {
 sub ping_message {
     my $self = shift;
     my ($manager, $client, $user, $interval, @args) = @_;
-    my $nick = $client->{nick};
     my $message = join (' ', @args);
-    if (!defined @args && !defined $interval) {
+    if (!@args && !defined $interval) {
         $client->msg ($user, "Pong.");
     } else {
         if (defined $message && $message ne '' && defined $interval
@@ -235,8 +237,10 @@ sub ping_message {
             my $command = join (' ', 'ping', $interval, $message);
             $self->add_command ($user, $command);
             $manager->enqueue ($interval * 60 + time(), sub { $self->do_ping ($manager, $client, $user, $message) });
+            $self->good_message($client, $user);
             $client->msg ($user, "Added ping message for every $interval minutes");
         } else {
+            my $nick = $client->{nick};
             $client->msg ($user, "Error: Use \"\%$nick ping <Interval> <Message>\".");
         }
     }
@@ -259,7 +263,7 @@ sub alarm_message {
         if (defined $2) { $offset = (($2 * 60) + $3) * 60 }
         else            { $offset = $3 * 60               }
         $pingtime = $offset + time();
-        
+
     # Time has been cruelly and viciously been sent in a bad format.
     } else { $done = 1 }
 
@@ -305,7 +309,7 @@ sub new {
 
     my $self = {};
     bless ($self, $class);
-    $self->maxbad (10);
+    $self->maxbad(10);
     return $self;
 }
 
@@ -369,12 +373,12 @@ sub handle_line {
         $self->check_signon ($client, $result{'name'});
         $self->good_message ($client, $result{'name'});
         return 0;
-        
+
     # We got unknown user message to one of our /msg's.
     } elsif ($result{'code'} == C_E_USER_BAD) {
-        $self->bad_message ($client, lc $result{'name'});
+        $self->bad_message ($client, lc $result{'s1'});
         return 0;
-        
+
     # Command message.  Reset the bad message count for the user to 0
     # and execute the command.
     } elsif (($result{'code'} == C_WHIS) && !$result{'on_channels'} &&
