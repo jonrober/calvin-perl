@@ -1,0 +1,199 @@
+#!/usr/bin/perl -w
+#
+# Runs the descbot, nagbot, and cambot bots from Calvin::Bots, connecting
+# to a calvin server.
+
+############################################################################
+# Modules and declarations
+############################################################################
+
+require 5.002;
+
+use lib '/home/jonrober/perl-stuff';
+
+use Calvin::Client;
+use Calvin::Manager;
+use Calvin::Parse qw (:constants);
+use Calvin::Config;
+use Calvin::Bots::Standard;
+use Calvin::Bots::Descbot;
+use Calvin::Bots::Nagbot;
+use Calvin::Bots::Cambot;
+use Calvin::Bots::Fengroll;
+
+use strict qw(vars);
+use vars qw(%help %bot_info %botlist %commands %bots @connect $bot $error_file);
+$error_file = '/home/jonrober/bot.errors';
+
+local $SIG{PIPE} = 'IGNORE';
+
+############################################################################
+# Basic commands
+############################################################################
+
+# Take a "help xxxxx" message and return help for xxxxx.  The help is
+#  stored in a hash of hash of lists, since each client may have
+#  different commands (and help for them), and each help message may
+#  have multiple lines.
+sub send_help {
+    my ($client, $user, $type) = @_;
+    my $line;
+    $type = lc $type;
+    if (exists $help{$client}{$type}) {
+        foreach $line ( @{$help{$client}{$type}} ) {
+            $client->msg ($user, $line);
+        }
+    }
+    else {$client->msg ($user, "No help for '$type'") }
+}
+
+# List all valid commands for the current client.
+sub list_commands {
+    my ($client, $user) = @_;
+    my $list = join (' ', @{$commands{$client}});
+    $client->msg ($user, "Available commands: $list");
+}
+
+############################################################################
+# Bot creation.
+############################################################################
+
+sub add_connect {
+    my ($manager, @connect) = @_;
+
+    my $info = pop @connect;
+    my ($server, $port, $nick, @botlist) = @connect;
+
+    # Make a client, connect, and register.
+    my $client = new Calvin::Client;
+    $client->connect ($server, $port, $nick);
+    $manager->register ($client);
+
+    # Add in the list of approved bot objects for each client.
+    @{$bots{$client}} = @botlist;
+
+    # Make the information bit for the bot.
+    $bot_info{$client} = $info;
+
+    # Load valid commands and help for each bot, as well as any startup
+    #  commands.
+    foreach $bot (@botlist) {
+        $bot->startup($client);
+        my %temphelp = $bot->return_help;
+        my @tempcommands = $bot->return_commands;
+        my $key;
+        foreach $key (keys %temphelp) {
+            @{$help{$client}{$key}} = @{$temphelp{$key}};
+        }
+
+        if (defined @{$commands{$client}}) {
+            @{$commands{$client}} = join (' ', @{$commands{$client}}, @tempcommands);
+        } else {
+            @{$commands{$client}} = @tempcommands;
+        }
+
+    }
+    # Add help bot.
+    @{$help{$client}{'bot'}} = (
+                                'bot <botname> <server> <port> [module] [options];...',
+                                'Help on modules and options are too long to go here -- please',
+                                'look in ~jonrober/uberbot.bots for information.',
+                               );
+    push (@{$commands{$client}}, 'bot');
+
+    return $manager;
+}
+
+############################################################################
+# Main routine
+############################################################################
+
+# We actually want to run as a daemon, so fork ourselves, exit the parent,
+# and close the standard file handles.
+fork && exit;
+close STDIN;
+close STDOUT;
+close STDERR;
+open (STDOUT, '> /dev/null') or die "Could not redirect STDOUT: $!\n";
+open (STDERR, "> $error_file") or die "Could not redirect STDERR: $!\n";
+
+# Make a new manager, then connect to all clients.  Clients exist in
+#  @connect, with the hostname, port, name the bot is to take, and then
+#  any bots to be run off of that connection.
+my $manager = new Calvin::Manager;
+for my $i (0 .. $#connect) {
+    $manager = add_connect($manager, @{$connect[$i]});
+}
+
+if (@ARGV) {
+    my @newbots = Calvin::Config::config_rc($ARGV[0]);
+    for my $i (0 .. $#newbots) {
+        $manager = add_connect($manager, @{$newbots[$i]});
+    }
+}
+
+
+# Loop forever, since the bot should never exit except through manual
+# intervention, and process commands.
+while (1) {
+    my $client = $manager->select;
+    next if not defined $client;
+
+    # Get the list of bots for this client.
+    my @botlist = @{$bots{$client}};
+
+    # Run anything in the queue.
+    $manager->run_queue ();
+
+    # Grab a line of output, then try to parse it.
+    my $line;
+    next if not defined ($client->raw_read (\$line));
+    my %result = Calvin::Parse::parse ($line);
+
+    # If we've signed off deliberately, clean up data.
+    if (($result{'code'} == C_SIGNOFF) &&
+             ($result{'name'} eq $client->{nick}) &&
+             ($result{'s1'} =~ /^Exiting( |:)/)) {
+        delete $bot_info{$client};
+        delete $help{$client};
+        delete $commands{$client};
+        #        @{$help{$client}{$key}} = @{$temphelp{$key}};
+        #        @{$commands{$client}} = @tempcommands;
+        next;
+    }
+
+    # Send the line to each bot.  They will return 1 if they find a command
+    #  to that bot, 0 if not.
+    my $found_command = 0;
+    foreach $bot (@botlist) {
+        $found_command = $bot->handle_line($manager, $client, $line, %result);
+        last if $found_command;
+    }
+    next if $found_command;
+
+    # Check to see if it is a help message.  Return help if it is.
+    #  Return help if it isn't, too, since we've already checked for
+    #  any valid commands.
+    if (($result{'code'} == C_WHIS) && (!$result{'on_channel'}) &&
+        ($result{'s1'} !~ /^- /)) {
+
+        my $user = $result{'name'};
+
+        # Parse the message sent us.
+        my $message = $result{'s1'};
+        $message =~ s/\t/ /;
+        $message =~ s/\s+$//;
+        my ($command, $type, @rest) = split (/ +/, $message);
+
+        if ($command =~ /^!?help$/i) {
+            if (defined $type) { send_help ($client, $user, $type) }
+            else               { list_commands ($client, $user)    }
+        } elsif (lc $command eq 'info') {
+            $client->msg($user, $bot_info{$client});
+        } elsif ($message =~ /^bot\s+(.*)/) {
+            my @newconnects = make_bot($client, $user, $1);
+            $manager = add_connect($manager, @newconnects);
+            #            $manager = make_bot ($manager, $client, $user, $1);
+        } else                 { list_commands ($client, $user)    }
+    }
+}

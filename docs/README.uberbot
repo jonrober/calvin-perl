@@ -1,0 +1,168 @@
+my $ub_descbot = new Calvin::Bots::Descbot;
+$ub_descbot->descroot('\calvin\descs');
+
+# Descbot: This only has one configuration worry.  Change /calvin/descs
+#  to whatever main directory your descs are located in.  Descs need
+#  to be in subdirectories under this directory, sorted by some sort of
+#  topic.  As an example, the calvin descs on eyrie are under
+#  /calvin/descs/default, /calvin/descs/aura/, /calvin/descs/area,
+#  /calvin/descs/scan...
+#
+# As far as usage goes, the default subdirectory should likely contain
+#  general appearance.  The reason for this is that
+#  "@msg uberbot desc eddie" will look for a file named eddie in the
+#  default subdirectory and send it.  So whatever catagory of descs
+#  that you think will be most used, you should put under default.
+#  The other subdirectories are accessed through "
+#  @msg uberbot desc eddie aura" for the aura subdir.  So the general
+#  format is "@msg uberbot desc <filename> [subdir]", where subdir
+#  defaults to "default" if it's not there.
+#
+# So make a directory to keep all the files, make a default subdirectory
+#  and whatever others needed under that, put the directory in
+#  "descroot('<directory>')", then put files of descriptions in the
+#  subdirectoies.
+
+
+my $ub_nagbot  = new Calvin::Bots::Nagbot;
+
+# No options needed here.
+#
+# Nagbot is a messaging bot, with three types of messages.  All of the
+#  messages are designed to only go to the user who sends them.  You
+#  *could* send a message to someone else by changing to their nick if
+#  they're not around and setting a message, but that's very bad form.
+#
+# "@msg ub signon <msg>" will add a signon message.  These messages are
+#  sent to you each time you sign on, and would generally be reminders to
+#  talk to someone, do something, etc.
+# "@msg ub alarm <time> <msg>" will add an alarm message at a certain
+#  time.  <time> is in the format of "+<x>m" or "+<x>h<y>m".  Fairly
+#  self-explainatory there.  +30m makes the alarm to off in 30 minutes. 
+#  +1h20m sets the alarm message to be sent to you in an hour and twenty
+#  minutes.
+# "@msg ub ping <interval> <msg>" will ping you with a message over and
+#  over every <interval> minutes.  So "@msg ub ping 15 Ask about pickup."
+#  would sent you the msg "Ask about pickup" every 15 minutes.
+#
+# There are two more commands from nagbot - listmsg and clearmsg. 
+#  listmsg will list all messages the bot has waiting for you, along with
+#  a number.  You can then use clearmsg to remove those msgs, by the
+#  number given by listmsg.  Alarms will only appear once, but pings will
+#  keep going until either cleared or the bot gets a certain number of
+#  responses that the user it's tried to msg doesn't exist.  This means
+#  that if you set a message to ping you every half-hour, it won't stop
+#  doing so if you happen to drop offline for one ping, but if you sign
+#  off for the night without removing the ping, it will likely have been
+#  cleared for you by the next day.  Signons will only disappear if you
+#  clear them.
+
+
+my $ub_cambot  = new Calvin::Bots::Cambot;
+$ub_cambot->logdir('\logs\cambot');
+$ub_cambot->perm_channels(2);
+$ub_cambot->autojoin(1, 'The MST Place');
+$ub_cambot->autojoin(2, 'Taervac\'s Bar and Grill');
+$ub_cambot->add_time(1);
+
+# Logdir is the root of where logs are kept.  Set it to where you want
+#  them.  They'll be stored in subdirectories of YYYY-MM.  So there
+#  you'd have "/logs/cambot/1998-09/1998-09-01-public.log", for the
+#  log of September first, 1998.
+#
+# perm_channels is a list of channels the bot will never leave.  Comment
+#  it out if there are none, or if you have multiple such, do them as
+#  "perm_channels(2,3,4)".
+#
+# autojoin adds a channel to be automatically joined on startup, along
+#  with the tag that join needs.  Note above that both /1 and /2 will be
+#  automatically joined, but the bot can be dismissed from /1 and not /2.
+#
+# add_time adds in a timestamp to the start of each line.  This is used
+#  for merging logs from two servers if there's a problem and you have to
+#  move between them, or for seeking a time to start displaying lines are
+#  at the standard log-display script.  You'd probably not want it, so you
+#  can set to 0.  We almost never use the merge part, and the other part
+#  is pretty much only used by one person, I think.  <wg>
+#
+# Something that's not in this list but you might want to add is
+#  "$ub_cambot->use_numerics(0);"  This controls whether numerics codes
+#  are used in the log.  Basically, this is a mode where the Calvin server
+#  returns lines with each field clearly delimited for ease of parsing. 
+#  If you want to read a log easily without a reading script, you want to
+#  add this line; otherwise a line like "<1: Van> Hey, what's up?" will
+#  look like "<|c1|E: |nVan|E> |1Hey, what's up?|E" in the log.  Nicer
+#  for a script to parse, but not that easy to read without, no.
+
+
+my $ub_standard = new Calvin::Bots::Standard;
+$ub_standard->ping_ok(0);
+$ub_standard->say_ok(0);
+
+# This sets up a Standard bot, which contains a few functions that
+#  don't fit into anything else, but are useful.  Even if you don't want
+#  to use the commands in it, there's still some things it does for a bot
+#  automatically that you'd want, so it's best to include it.
+#
+# All of the commands it gives are set to on by default, and you turn
+#  them off by setting the <command>_ok(0) like above.
+#
+# ping_ok adds in a ping command that can be used for checking to see
+#  if the bot is lagging.  Message it ping, it returns Pong.  You want to
+#  set it off if you're using Nagbot, since it has a command of the same
+#  name that I've set to work the same if you give it no arguments.
+#
+# time_ok controls the "time" command.  Send the bot "@msg ub time" and
+#  it'll send you the current time as it knows it, in the same format as
+#  the server's @time command.
+#
+# renick_ok controls "renick" command.  If someone's connected under
+#  the default nick the bot tries to use, it adds a number to the nick to
+#  connect.  As an example, if it tries to nick itself ub and someone else
+#  is nicked so, it will nick itself as ub1.  Renick has the bot try to
+#  change it's nick to the original tried nick again, in case the person
+#  who took the nick is gone.
+#
+# say_ok controls "say", which is a complete joke command that lets you
+#  puppet says through the bot.  "@msg ub say 1 Hi!" makes the bot say
+#  "Hi!" on /1.  You probably want to disable this -- it's easy to abuse.
+
+
+my $fb_cambot = new Calvin::Bots::Cambot;
+$fb_cambot->logdir('\logs\futurebot');
+$fb_cambot->basename('fkids');
+$fb_cambot->perm_channels(31);
+$fb_cambot->autojoin(31, 'The Base');
+$fb_cambot->add_time(1);
+
+my $fb_standard = new Calvin::Bots::Standard;
+$fb_standard->say_ok(0);
+
+# Same stuff here, except this sets up two more bots, one a Standard
+#  and one a Cambot.  See below for more info there.
+
+
+@connect = (
+            [ 'windlord.stanford.edu', 9090, 'Cammy', $ub_standard,
+               $ub_descbot, $ub_cambot, $ub_nagbot ],
+            [ 'windlord.stanford.edu', 9090, 'Spy-Eye', $fb_standard,
+               $fb_cambot ],
+           );
+
+# Here's where we define the connections and hook the bots to them. The
+#  format is "[ '<host>', <port>, '<nick>', <bot1>, <bot2>, ... ]".  Any
+#  number of bots can be hooked to a connect, though hooking two bots of
+#  the same type to a connect is a bad thing.  You'd end up with problems
+#  when you send it a command from the doubled bot.
+#
+# In this case, two connections are defined to the same server.  One
+#  connect will be nicked Cammy, and have the Standard, Descbot, Cambot,
+#  and Nagbot connects defined in the the variables hooked there.  The
+#  second bot will be named Spy-Eye, and only have Standard and Cambot
+#  bots hooked to it.
+#
+# One more worry here is that you can make multiple connects to one
+#  server, but not to several servers.  If you want to do that, you'll
+#  need multiple scripts.   Otherwise if one server isn't up, it can block
+#  all connections.  This should be fixed sometime, but it's something I
+#  have no idea how to do, and Eag's rather busy. :)

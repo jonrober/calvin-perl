@@ -1,0 +1,72 @@
+CHANGES: Removed localhost from descbot.
+
+
+The bots now have a new feature, that of creating new bots via msg. 
+This means that you could make a personal logging connect from eyrie
+while having connectivity problems (if you make that directory readable
+for the bot), or any games can request a bot without having to have me
+make a custom uberbot script for them.  Or eventually, we could get a
+reflector that can be invited to the server via msg.
+
+The syntax is simple, though not the easiest to remember without a
+reference.  If there's any problem with the string you're given,
+including directories it can't access or aren't there, it error
+messages you with the bad directives.  All bots you create will shut
+down if given a msg "quit".  You can't change that.
+
+"%ub bot <botname> <server> <port> [module] [options]; [module]
+ [options];..."
+
+Modules   Options
+=======   =======
+cambot:   readlog=<number>         Maximum minutes for readlog.
+          recchan=<number>         Maximum lines for recchan.
+          recall_passwd=<password> Password needed for readlog or recchan,
+                                     none by default, add one if you're
+                                     using a personal cambot.
+          addtime=<yes|no>         Have the leading timestamp on loglines?
+          usenumerics=<yes|no>     Have numerics codes in the log?
+          logdir='<dir>'           Base directory to send logs to.
+          basename=<name>          Name appended to date on logs.  'public'
+                                     in 1998-09-11-public.log
+          spamflag=<string>        Lines spammed in a session invite will
+                                     have this prefix.
+          max_sessions=<number>    The maximum number of sessions allowed
+                                     at once.
+          spam_after_invite=<yes|no> Spam session lines before or after
+                                       the bot joins the channel.
+
+
+Nagbot:   None!
+
+
+Standard: say=<yes|no>             Enable/disable say command.
+          ping=<yes|no>            Enable/disable ping command.
+                                     Don't use it if you use nagbot,
+                                     'cause it has a ping command too.
+          time=<yes|no>            Enable/disable time command.
+
+
+descbot   descroot='<dir>'         Root directory for the descs.
+                                     '/calvin/descs' by default.
+
+
+fengroll  roll_chan=<channel>      Channel rolls are sent to.
+          passwd=<password>        GM password to be used for modifying
+                                     rolls, run through crypt with salt
+                                     jr.
+          
+So, for an example..
+"%ub bot FS windlord.stanford.edu 9090 fengroll roll_chan=8; cambot
+ logdir='~mechaman/FS';
+..might invite the gamebot.  You can't set auto-invite or permanent
+channels with the cambot, as the former gets messy in command-line
+syntax and the latter doesn't appeal to me.
+
+Other notes:
+     Standard bot will always be loaded, with the defaults if not
+actually specified.  In the above example, it *does* use the standard
+module.  This is because the standard module contains various things
+that are useful in general.
+     You can create a bot by sending the msg to any existing bot
+connection, not just ub.
