@@ -25,7 +25,7 @@ use Calvin::Client;
 use strict;
 use vars qw($ID $VERSION $ping_after);
 
- $ID      = '$Id$';
+ $ID      = '$Id: Manager.pm,v 0.6 1997/02/17 15:47:17 rra Exp $';
 ($VERSION = (split (' ', $ID))[2]) =~ s/\.(\d)$/.0$1/;
 
 # We ping all servers after this much time (in seconds) has passed.  Change
@@ -132,11 +132,36 @@ sub select {
 
 
 # List the clients a manager is serving.
-# XXX: check for dead clients.
 sub managed_clients {
-    my($manager) = @_;
+    my($self) = @_;
 
-    return(@{$manager->{clients}});
+    my @clients;
+    for (my $i = 0; $i <= $#{$self->{clients}}; $i++) {
+        unless ($self->{dead}[$i]) { push (@clients, $self->{clients}[$i]) }
+    }
+    return @clients;
+
+    #    return(@{$self->{clients}});
+}
+
+# Remove a client from the client list and dead list, and also fix the
+#  fairness pointer to adjust for the missing client.
+sub kill_client {
+    my($self, $client) = @_;
+    my $i = 0;
+
+    for ($i = 0; $i <= $#{$self->{clients}}; $i++) {
+        if ($self->{clients}[$i] == $client) { last }
+    }
+
+    my $fairness = $self->{client};
+    if ($i < $fairness) {
+        $self->{client}--;
+    } elsif ($i == $fairness && $i == $#{$self->{clients}}) {
+        $self->{client}--;
+    }
+    splice(@{$self->{clients}}, $i, 1);
+    splice(@{$self->{dead}},    $i, 1);
 }
 
 ############################################################################
