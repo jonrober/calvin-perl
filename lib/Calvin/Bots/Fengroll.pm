@@ -23,14 +23,6 @@ use strict;
 # Private methods.
 ############################################################################
 
-# Send a quit message.
-sub send_quit {
-    my $self = shift;
-    my ($client, $user) = @_;
-    $client->raw_send ("\@quit Exiting at ${user}'s request\n");
-}
-
-
 # Set the channel to send rolls to.
 sub set_rollchan {
     my $self = shift;
@@ -99,7 +91,7 @@ sub do_roll {
     my (@d1, @d2, $reroll, $extra, $cmsg, $first_mod);
     my $except = 0;
     my $total = 0;
-    
+
     # Roll dice.  If both are 6, it's an exceptional roll.  If any is
     #  6, keep rolling that die and adding it to the results for that
     #  roll until we get something other than a 6.
@@ -141,7 +133,7 @@ sub do_roll {
             decrease_die(\@d2);
             $gm_modifier--;
         }
-    }   
+    }
 
     # If we have a modifier, we want to roll a random number to start
     #  applying to the first die's rolls, then apply the rest to the
@@ -150,8 +142,7 @@ sub do_roll {
     #  and the modifier).
     if ($gm_modifier) {
         my $temp_total = 0;
-        map { $temp_total += $_ } @d1;
-        map { $temp_total += $_ } @d2;
+        $total += $_ foreach (@d1, @d2);
         $first_mod = int (rand ((((abs $gm_modifier) + $temp_total) / 3) + 1));
     }
     else {
@@ -209,10 +200,10 @@ sub do_roll {
     #  messes up the other.
     redist_sixes(\@d1, \@d2);
     redist_sixes(\@d2, \@d1);
-    
-    map { $total += $_ } @d1;
-    map { $total -= $_ } @d2;
-    map { $total += $_ } @pluses;
+
+    $total += $_ foreach @d1;
+    $total -= $_ foreach @d2;
+    $total += $_ foreach @pluses;
     if ($fortune) {
 	$fortune = int (rand (6)) + 1;
 	$total += $fortune;
@@ -234,7 +225,7 @@ sub do_roll {
 ############################################################################
 
 # Performs any functions that need to be done once the object has been
-#  attached to a Calvin::Client.  
+#  attached to a Calvin::Client.
 sub startup {
     my $self = shift;
     srand ($$ ^ time);
@@ -282,7 +273,6 @@ sub return_commands {
     my (@commands) = (
                       'roll',
                       'froll',
-                      'quit',
                      );
     return @commands;
 }
@@ -297,13 +287,10 @@ sub return_help {
              'froll' => ['Syntax:  froll [+-num] [+-num]...',
                          'Changes the nick back to the default.',
                         ],
-             'quit'  => ['Syntax:  quit',
-                         'Disconnects the bot.',
-                        ],
             );
     return %help;
 }
- 
+
 
 sub handle_line {
     my $self = shift;
@@ -328,10 +315,6 @@ sub handle_line {
     } elsif ($result{'s1'} =~ /^rollchan (.*)/) {
         $self->set_rollchan($1);
         return 1;
-    } elsif ($result{'s1'} =~ /^quit/) {
-        $self->send_quit ($client, $result{'name'});
-        $client->shutdown;
-        exit;
     } else {
         return 0;
     }
