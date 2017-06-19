@@ -255,7 +255,7 @@ sub new {
 
     my $self = {};
     bless ($self, $class);
-    $self->descroot ('/calvin/descs/');
+    $self->descroot ('/srv/calvin/descs/');
     $self->localhost ('eyrie.org');
     
     return $self;
@@ -328,7 +328,7 @@ sub handle_line {
         return 1;
     }
     
-    if ($prefix eq 'desc') {
+    if ($prefix eq 'desc' && defined $command) {
         # Hand off to the appropriate sub based on the command.
         if      ($command eq '!list')    {
             $self->send_list ($client, $result{'name'}, @args);
