@@ -45,7 +45,7 @@ use Exporter ();
                                  C_UNKNOWN)]);
 Exporter::export_ok_tags ('constants');
 
-($VERSION = (split (' ', q$Revision$ ))[1]) =~ s/\.(\d)$/.0$1/;
+($VERSION = (split (' ', q$Revision: 0.4 $ ))[1]) =~ s/\.(\d)$/.0$1/;
 
 
 ############################################################################
@@ -155,7 +155,7 @@ sub set {
             $line =~ s/\|c(\d+)\|E/$1/;
             $fields{'channel'} = $1;
         }
-        if ($find =~ /C/) { 
+        if ($find =~ /C/) {
             $line =~ s/\|C(.*?)\|E/$1/;
             $fields{'chans_on'} = $1;
         }
@@ -163,31 +163,31 @@ sub set {
             $line =~ s/\|n(.*?)\|E/$1/;
             $fields{'name'} = $1;
         }
-        if ($find =~ /d/) { 
+        if ($find =~ /d/) {
             $line =~ s/\|d(.*?)\|E/$1/;
             $fields{'date'} = $1;
         }
-        if ($find =~ /t/) { 
+        if ($find =~ /t/) {
             $line =~ s/\|t(.*?)\|E/$1/;
             $fields{'topic'} = $1;
         }
-        if ($find =~ /A/) { 
+        if ($find =~ /A/) {
             $line =~ s/\|A(\S+?)\|E/$1/;
             $fields{'address'} = $1;
         }
-        if ($find =~ /i/) { 
+        if ($find =~ /i/) {
             $line =~ s/\|i(.*?)\|E/$1/;
             $fields{'idle'} = $1;
         }
-        if ($find =~ /I/) { 
+        if ($find =~ /I/) {
             $line =~ s/\|I(.*?)\|E/$1/;
             $fields{'idle_chan'} = $1;
         }
-        if ($find =~ /1/) { 
+        if ($find =~ /1/) {
             $line =~ s/\|1(.*?)\|E/$1/;
             $fields{'s1'} = $1;
         }
-        if ($find =~ /2/) { 
+        if ($find =~ /2/) {
             $line =~ s/\|2(.*?)\|E/$1/;
             $fields{'s2'} = $1;
         }
@@ -211,7 +211,7 @@ sub parse {
     s/[\r\n]+$//;
 
     my (%fields);
-    
+
     # Try to parse it.
     if    (s/^1021 //) { %fields = &set ($_, C_PUBLIC,      'cn1', 1) }
     elsif (s/^1031 //) { %fields = &set ($_, C_PUBLIC,      'cn1', 0) }
@@ -251,7 +251,7 @@ sub parse {
     elsif (s/^3204 //) { %fields = &set ($_, C_NICK_CHANGE, 'n1')     }
     elsif (s/^4101 //) { %fields = &set ($_, C_S_LIST_HEAD, 'ct')     }
     elsif (s/^4102 //) { %fields = &set ($_, C_S_LA_HEAD,   '')       }
-    elsif (s/^4103 //) { %fields = &set ($_, C_S_LIST,      'niC')    }
+    elsif (s/^4103 //) { %fields = &set ($_, C_S_LIST,      'niCA')   }
     elsif (s/^4201 //) { %fields = &set ($_, C_S_USERS,     'cI1')    }
     elsif (s/^4401 //) { %fields = &set ($_, C_S_TIME,      'd')      }
     elsif (s/^9101 //) { %fields = &set ($_, C_E_USER_BAD,  '1')      }
