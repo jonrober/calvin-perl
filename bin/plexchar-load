@@ -1,0 +1,759 @@
+#!/usr/bin/perl
+
+#############################################################################
+# Modules and declarations
+#############################################################################
+
+use 5.010;
+use autodie;
+use strict;
+use warnings;
+
+use lib '/home/jonrober/perl-stuff/';
+
+use Data::Dumper;
+use Getopt::Long::Descriptive;
+use IO::Handle;
+use JSON;
+use Storable;
+use Text::ParseWords;
+use Time::Piece;
+use Time::Seconds;
+
+use Calvin::Parse;
+use Logfunctions qw(to_numeric);
+
+# Our option descriptions, for both defining options and their usage.
+our @OPTIONS = (
+    ['help|h',     'print usage (this text) and exit'],
+    ['manual|man', 'print perldoc and exit'],
+    ['debug',      'print out extra debugging information'],
+    ['charfile=s', 'write to a different character storable file'],
+);
+
+# Channel to use for any default channels.
+my $DEFNUM = 99;
+
+# Minimum hits per logs for an alias to show up.
+my $MIN_HITS = 5;
+
+# Directories for our data files.
+our $ROOT_DIR = '/home/jonrober/plexwiki/';
+our $DATA_DIR = $ROOT_DIR . 'data/';
+our $CHAR_DATA = $DATA_DIR . 'characters.store';
+
+#############################################################################
+# File routines
+#############################################################################
+
+# Load the storable hash of characters and their players and scenes.
+sub get_characters {
+    return () unless -f $CHAR_DATA;
+
+    my $char_ref = retrieve($CHAR_DATA);
+    return %{ $char_ref };
+}
+
+sub store_characters {
+    my (%characters) = @_;
+    store \%characters, $CHAR_DATA;
+}
+
+# Get a hash of all player names in their 'normal' nicks.
+sub get_players {
+    my %players;
+    my $fname = $DATA_DIR . 'players';
+    open (my $fh, '<', $fname);
+    while (my $line = <$fh>) {
+        chomp $line;
+    	next if $line =~ m{^#};
+    	next if $line !~ m{\S};
+
+        $players{$line} = ();
+    }
+    close $fh;
+    return %players;
+}
+
+# Read in a mappings file of key-value combos.  We have a few types:
+#   Nicknames/typoes to character names
+#   Nicknames/typoes/aliases to player names
+#   Characters to players who don't actually own them and should be skipped
+# If multiple is set then we make the value a second-level hash set to 1, so
+# that each key may have multiple values.
+sub get_map {
+    my ($map_name, $multiple) = @_;
+
+    my %map;
+    my $fname = $DATA_DIR . $map_name;
+    open (my $fh, '<', $fname);
+    while (my $line = <$fh>) {
+        chomp $line;
+    	next if $line =~ m{^#};
+    	next if $line !~ m{\S};
+
+    	my ($key, $value) = split(/\s+/, $line);
+        if ($multiple) {
+            $map{$key}{$value} = 1;
+        } else {
+    	    $map{$key} = $value;
+        }
+    }
+    close $fh;
+
+    return %map;
+}
+
+# Get a hash of all overrides.  Each will start with a command and then have
+# 2-3 options -- one to two keys and one value to rename a player or character
+# when the key(s) match.  Build the hash and then return it.
+sub get_overrides {
+    my %map;
+    my $fname = $DATA_DIR . 'overrides';
+    open (my $fh, '<', $fname);
+    while (my $line = <$fh>) {
+        chomp $line;
+    	next if $line =~ m{^#};
+    	next if $line !~ m{\S};
+
+        my ($action, @tokens) = quotewords('\s+', 0, $line);
+
+        my $success = 1;
+        if ($action eq 'ALIAS' && scalar @tokens == 3) {
+            my ($old_char, $player, $new_char) = @tokens;
+            $map{alias}{$old_char}{$player} = $new_char;
+        } elsif ($action eq 'REPLAYER' && scalar @tokens == 3) {
+            my ($char, $old_player, $new_player) = @tokens;
+            $map{replayer}{$char}{$old_player} = $new_player;
+        } elsif ($action eq 'PLAYERNICK' && scalar @tokens == 2) {
+            my ($old_player, $new_player) = @tokens;
+            $map{playeralias}{$old_player} = $new_player;
+        } elsif ($action eq 'PLAYERREGEX' && scalar @tokens == 2) {
+            my ($regex, $new_player) = @tokens;
+            $map{playerregex}{$regex} = $new_player;
+        } elsif ($action eq 'SKIPADDRESS' && scalar @tokens == 1) {
+            my ($address) = @tokens;
+            $map{skipaddress}{$address} = 1;
+        } else {
+            $success = 0;
+        }
+        warn "could not parse override: $line\n" unless $success;
+    }
+    close $fh;
+
+    return %map;
+}
+
+# Read in the list of words that don't actually qualify as character names.
+sub get_skip_words {
+    my ($fname_skip) = @_;
+
+    my %skip_words;
+    my $fname = $DATA_DIR . $fname_skip;
+    open (my $fh, '<', $fname);
+    while (my $line = <$fh>) {
+        chomp $line;
+    	next if $line =~ m{^#};
+    	next if $line !~ m{\S};
+
+    	$skip_words{$line} = 1;
+    }
+    close $fh;
+
+    return %skip_words;
+}
+
+# Given two filenames, make sure that they are for the same log separated by
+# one day.  This distinguishes when we're normally loading uberbot logs from
+# loading random personal logs.  In the first case we want to retain some state
+# from the previous log, while in the latter we want to start fresh.
+sub next_day {
+    my ($first, $second) = @_;
+
+    my ($first_date, $first_suffix)
+        = ($first =~ m{(\d{4}-\d{2}-\d{2})-(.+)\.log$});
+    my ($second_date, $second_suffix)
+        = ($second =~ m{(\d{4}-\d{2}-\d{2})-(.+)\.log$});
+
+    return 0 unless defined $first_suffix && defined $first_date;
+    return 0 unless defined $second_suffix && defined $second_date;
+    return 0 if $first_suffix ne $second_suffix;
+
+    # Now calculate the next day from first date and compare with the second.
+    my $tomorrow = Time::Piece->strptime($first_date, '%Y-%m-%d') + ONE_DAY;
+    return 1 if $tomorrow->strftime('%Y-%m-%d') eq $second_date;
+    return 0;
+}
+
+#############################################################################
+# String manipulation.
+#############################################################################
+
+# Parse out the character and player from a line.
+sub parse_line_speaker {
+    my ($result) = @_;
+    my ($player, $char) = ('', '');
+
+    # If s2 was set this was bracket-channeled.
+    if (exists $result->{s2}) {
+        $char   = $result->{s2};
+    	$player = $result->{name};
+    } else {
+        $char = $result->{name};
+    }
+
+    return ($player, $char);
+}
+
+# Given a nickname and a hash of overrides, see if the nickname is actually an
+# alias for a known player.  This covers normal player bot connections and
+# alternative nicks like VanFood.
+sub player_dealias {
+    my ($player, $overrides) = @_;
+    if (exists $overrides->{playeralias}{$player}) {
+        return $overrides->{playeralias}{$player};
+    }
+
+    for my $regex (keys %{ $overrides->{playerregex} }) {
+        next unless $player =~ m{$regex};
+        return $overrides->{playerregex}{$regex};
+    }
+
+    return $player;
+}
+
+# Given an address and a hash of players and their addresses, find if there is
+# one unique player who owns that address.  Return that player, or '' if none.
+sub unique_address_owner {
+    my ($address, $players, $options) = @_;
+
+    my %owners;
+    PLAYER: for my $player (keys %{ $players }) {
+        for my $alias (keys %{ $players->{$player} }) {
+            next unless $players->{$player}{$alias} eq $address;
+            $owners{$player} = 1;
+            print "Character: Found owner $player\n" if $options->debug;
+            return '' if scalar keys %owners > 1;
+            next PLAYER;
+        }
+    }
+
+    return '' unless scalar keys %owners == 1;
+
+    my @players = keys %owners;
+    return $players[0];
+}
+
+# Try to determine the player and character from a given line.  Returns the
+# player (or '' if none known) and character names.
+sub get_character_player {
+    my ($player, $char, $addresses, $players, $overrides, $options) = @_;
+
+    # Clean up and canonicize the character and player names.  Do the char as
+    # both player and character maps as it might still be an actual player with
+    # a name like VanFood.
+    $char   = clean_nickname($char);
+    $player = clean_nickname($player);
+
+    # Sometimes we'll have someone bracket channel the character they currently
+    # are in a brainfart.  Just strip the player if that's true.
+    $player = '' if $char eq $player;
+
+    print "Character: Cleaned combo is $char:$player\n" if $options->debug;
+
+    # If the player field matches a known player, we're all done.
+    return ($player, $char) if exists $players->{$player};
+
+    # In several checks we want the most specific nick of player or character.
+    my $check_nick = $player || $char;
+
+    # First do a check to see if the nick is a known player name version.
+    my $de_aliased = player_dealias($check_nick, $overrides);
+    print "Character: Dealias is $de_aliased\n" if $options->debug;
+    if ($de_aliased ne $check_nick) {
+        $player = $de_aliased;
+        print "Character: Player base override is $char:$player\n"
+            if $options->debug;
+        return ($player, $char);
+    }
+
+    # See if the address belongs to a known player.  Use whichever of character
+    # or player is set, since that'll still be the actual person who gave the
+    # line.
+    print "Check addresses for $check_nick\n" if $options->debug;
+    print Dumper($addresses), "\n" if $options->debug;
+    if (exists $addresses->{$check_nick}) {
+        my $address_owner = unique_address_owner($addresses->{$check_nick},
+                                                 $players, $options);
+        if ($address_owner ne '') {
+            print "Character: Address override is $char:$address_owner\n"
+                if $options->debug;
+            return ($address_owner, $char);
+        }
+    }
+
+    print "Character: No matches, still $char:$player\n" if $options->debug;
+    return ($player, $char);
+}
+
+# Check for any places where the normal lookup for a character/player needs to
+# be overridden.
+sub switch_character_player {
+    my ($player, $char, $overrides, $options) = @_;
+
+    # Check for any overrides where the character is owned by a
+    if (exists $overrides->{replayer}{$char}{$player}) {
+        $player = $overrides->{replayer}{$char}{$player};
+        print "Character: Player override combo is $char:$player\n"
+            if $options->debug;
+    }
+
+    return ($player, $char);
+}
+
+# Given a character, a to and from name, and the character hash, move data from
+# one owner to the other.  Used to reconcile ownership once we have full data.
+sub move_character_owner {
+    my ($char, $from, $to, %characters) = @_;
+    for my $c (keys %{ $characters{$char}{$from}{'files'} }) {
+        for my $tag (keys %{ $characters{$char}{$from}{'files'}{$c} }) {
+            for my $f (keys %{ $characters{$char}{$from}{'files'}{$c}{$tag} }) {
+                $characters{$char}{$to}{'files'}{$c}{$tag}{$f} = 0
+                    unless exists $characters{$char}{$to}{'files'}{$c}{$tag}{$f};
+                $characters{$char}{$to}{'files'}{$c}{$tag}{$f}
+                    += $characters{$char}{$to}{'files'}{$c}{$tag}{$f};
+            }
+        }
+    }
+    delete $characters{$char}{$from};
+
+    return %characters;
+}
+
+# Clean a channel tag.  Currently this just strips the "(Cont.)" from the end.
+sub clean_tag {
+    my ($tag) = @_;
+
+    $tag =~ s{ \(Cont\.\)$}{};
+    return $tag;
+}
+
+# Take a number of regular expressions for nickname variations and use them to
+# clean the nickname.
+sub clean_nickname {
+    my ($nick) = @_;
+
+    # Variations of the nick for various idles and signon problems.
+    $nick =~ s{(\w)Away$}{$1};
+    $nick =~ s{(\w)Idle$}{$1};
+    $nick =~ s{(\w)BRB$}{$1};
+    $nick =~ s{(\w)Bio$}{$1};
+    $nick =~ s{(\w)Work$}{$1};
+    $nick =~ s{(\w)Meet$}{$1};
+    $nick =~ s{(\w)Lunch$}{$1};
+    $nick =~ s{(\w)Food$}{$1};
+    $nick =~ s{(\w)_+$}{$1};
+    $nick =~ s{(\w)\@.+$}{$1};
+    $nick =~ s{^-(.+)-$}{$1};
+    $nick =~ s{^"(.+)"$}{$1};
+#    $nick =~ s{^<(.+)>$}{$1};
+#    $nick =~ s{^=(.+)=$}{$1};
+
+    # Various problems caused when we convert non-numeric lines back to numeric
+    # and include spaces or extra bits from a ppose.
+    $nick =~ s{\s+$}{};
+    $nick =~ s{(\w)'[tsd]$}{$1};
+    $nick =~ s{(\w)'r[ed]$}{$1};
+    $nick =~ s{(\w)[.!,]+$}{$1};
+
+    # Fix lowercase problems.
+    $nick = ucfirst($nick) if $nick =~ m{^[a-z]};
+
+    return $nick;
+}
+
+#############################################################################
+# Main routine
+#############################################################################
+
+# Get errors and output in the same order.
+STDOUT->autoflush;
+
+# Clean up the path name.
+my $fullpath = $0;
+$0 =~ s{ ^ .* / }{}xms;
+
+# Parse command-line options.
+my ($options, $usage) = describe_options("$0 %o <args>", @OPTIONS);
+if ($options->manual) {
+    print "Feeding myself to perldoc, please wait....\n";
+    exec 'perldoc', '-t', $fullpath;
+} elsif ($options->help) {
+    print $usage->text;
+    exit 0;
+}
+
+# Use a user specified character file rather than the main one, for personal
+# logs.
+if ($options->charfile) {
+    $CHAR_DATA = $options->charfile;
+}
+
+# Get data from files.
+# TODO: Collapse these into one data structure.
+my %skip_words       = get_skip_words('skip-words');
+my %skip_regexes     = get_skip_words('skip-regexes');
+my %skip_char_player = get_map('skip-char-player', 1);
+my %address_map      = ();
+my %players          = get_players;
+
+my %overrides = get_overrides;
+
+my %characters = ();
+%characters    = get_characters unless $options->debug;
+
+# %scenes: Reset on each new log, the scenes active in that log.
+# %tmp_address_map: Reset on each new log, records addresses to player.
+my (%addresses, %scenes);
+
+my $numeric_log;
+my $lastlog = '';
+LINE: while (my $line = <>) {
+    chomp $line;
+
+    # Detect rolling to new log to reset per-log statuses.  Only reset the
+    # address maps if we haven't had a straight next-day rollover.
+    if ($ARGV ne $lastlog) {
+        print "Rollover: $ARGV\n" if $options->debug;
+        unless (next_day($lastlog, $ARGV)) {
+            print "Rollover: Cleaning addresses\n" if $options->debug;
+            foreach my $player (keys %players) {
+                $players{$player} = ();
+            }
+            %addresses       = ();
+        }
+        $lastlog           = $ARGV;
+        $numeric_log       = 0;
+        %scenes            = ();
+    }
+
+    # Strip off any leading timestamp.
+    my $time = '';
+    if ($line =~ s{^#(\d+)# }{}) {
+        $time = $1;
+    }
+
+    # Detect the line that tells us that numerics are on in uberbot logs.
+    if ($line =~ /^\% Numerics on\./) {
+        $numeric_log = 1;
+        next LINE;
+    }
+
+    ## Save the channel from the starting channel list.
+    if ($line =~ /^% Channel (\d+): \[(.+)\]/) {
+        $scenes{$1} = clean_tag($2);
+    }
+
+    # Translate the line to numeric if it's not already so, then parse.
+    $line = to_numeric ($line, $DEFNUM) unless $numeric_log;
+    next LINE unless defined $line;
+    my %result = &Calvin::Parse::parse ($line);
+
+    print "** New Line\n" if $options->debug;
+    print "$line\n" if $options->debug;
+
+    # From a signon or user list, grab a map of name to IP/address.
+    my $code = $result{code};
+    if ($code == 2001 || $code == 4103) {
+        my $address    = lc($result{address});
+        my $name       = $result{name};
+        my $name_clean = player_dealias($name, \%overrides);
+
+        # Ignore any common addresses we skip.
+        next if exists $overrides{skipaddress}{$address};
+
+        # Always record the address for this person.  If the nick is for a
+        # player, also record that the player is one of the possible owners of
+        # the address.  Use the cleaned version of the name to check if it's a
+        # player, but add the actual current nick to follow nick changes.  We
+        # also clear the address out of any existing player info, since it's
+        # possible for things to need cleanups.  (We can only see nick changes)
+        # for channels we're on, which can lead to some confusions.)
+        $addresses{$name} = $address;
+        for my $n (keys %players) {
+            delete $players{$n}{$name} if exists $players{$n}{$name};
+        }
+        $players{$name_clean}{$name} = $address if exists $players{$name_clean};
+        print "Address: Saving $address for $name\n" if $options->debug;
+        next LINE;
+
+    # Move the mapping on a nick change.
+    } elsif ($code == 3204) {
+        my $new        = $result{name};
+        my $old        = $result{s1};
+        my $name_clean = player_dealias($new, \%overrides);
+
+        # Clean any players who previously had the nick as old cached info.
+        # Do this before we do anything that might skip unfamiliar nicks -- any
+        # cached data for the new character shouldn't exist no matter what, as
+        # the new character supposedly didn't exist before this nick change.
+        for my $n (keys %players) {
+            delete $players{$n}{$new} if exists $players{$n}{$new};
+        }
+        $addresses{$new} = '';
+
+        # Update the address in our storage of addresses.
+        next unless exists $addresses{$old};
+        my $address = $addresses{$old};
+        $addresses{$new} = $address;
+        delete $addresses{$old};
+
+        # Update if this is a player alias.
+        if (exists $players{$name_clean}) {
+            $players{$name_clean}{$new} = $address;
+            delete $players{$name_clean}{$old}
+                if exists $players{$name_clean}{$old};
+        }
+
+        print "Address: Switching $addresses{$new} from $old to $new\n"
+            if $options->debug;
+        next LINE;
+
+    # Delete the mapping on signoff.
+    } elsif ($code == 2002) {
+        my $nick = $result{name};
+        my $name_clean = player_dealias($nick, \%overrides);
+
+        # Remove the old address.
+        next unless exists $addresses{$nick};
+        my $address = $addresses{$nick};
+        delete $addresses{$nick};
+
+        # Remove if this was a player alias.
+        if (exists $players{$name_clean} && exists $players{$name_clean}{$nick}) {
+            delete $players{$name_clean}{$nick};
+        }
+
+        print "Address: Removing $address for $nick\n" if $options->debug;
+        next LINE;
+    }
+
+    # Now skip everything that's not a person (or character) line.
+    next LINE unless $code =~ m{^10\d{2}$};
+
+    # Skip player-only channels.
+    my $channel = $result{channel};
+    next LINE if $channel == 1 || $channel == 0;
+
+    # Get any log tag from log start lines.
+    if ($line =~ /Starting to log channel (\d+) \[(.+)\]/) {
+        $scenes{$1} = clean_tag($2);
+        print "Tag: Starting to log $1: $2\n" if $options->debug;
+    }
+
+    # Try to figure out the character and player name from line and address.
+    my ($player, $char) = parse_line_speaker(\%result);
+    print "Character: Initial combo is $char:$player\n" if $options->debug;
+    next LINE if $char =~ m{^[uf]b\d*$}i;
+    next LINE if $player eq '.';
+
+    # Skip characters that are known player aliases.  You'd only see these as
+    # characters (rather than players) if the owner mischanneled something and
+    # the line came out without brackets.  We skip player names themselves
+    # separately as they're in the skip-words file.
+    # TODO: Move the players out of skip-words and maybe special-case Frobozz.
+    my $dealias = player_dealias($char, \%overrides);
+    next LINE if $char ne $dealias;
+
+    ($player, $char) = get_character_player($player, $char, \%addresses,
+                                            \%players, \%overrides, $options);
+
+    ($player, $char) = switch_character_player($player, $char, \%overrides,
+                                               $options);
+
+    # If the calculated player isn't an actual player, it may be a character
+    # channeling another character.  In that case, try to calculate again, this
+    # time using 'player' as character.
+    # TODO: IMPROVE!
+    if ($player ne '' && !exists $players{$player}) {
+        ($player) = get_character_player($player, $player, \%addresses,
+                                         \%players, \%overrides, $options);
+    }
+
+    # Skip some times when we see a character owned by a strange player.
+    next LINE if exists $skip_char_player{$player}{$char};
+
+    # Skip if the character is any other word we skip, such as generic names
+    # like 'Man'.
+    next LINE if exists $skip_words{$char};
+    for my $regex (keys %skip_regexes) {
+        next LINE if $char =~ m{$regex}i;
+    }
+
+    # If there is still no player for this line and the character has one and
+    # only one player so far, assume that they are it.
+    if ($player eq '') {
+        print "Character: Trying empty match for $char\n" if $options->debug;
+        print Dumper($characters{$char}), "\n" if $options->debug;
+        if (scalar(keys %{ $characters{$char} }) == 1) {
+            my ($previous) = keys %{ $characters{$char} };
+            $player = $previous unless $previous eq '';
+            print "Character: Empty match is $char:$player\n" if $options->debug;
+        }
+    }
+
+    # Finally we have something we're reasonably sure we want to save.
+    print "Character: Final combo is $char:$player\n" if $options->debug;
+    my $tag = $scenes{$channel};
+    $characters{$char}{$player}{'files'}{$channel}{$tag}{$ARGV}++;
+}
+
+# Now that we've done this, clean up any time when a character was used less
+# than a minimum amount of times.  This should clean up mischans and minor
+# walkthroughs.
+for my $char (keys %characters) {
+    for my $p (keys %{ $characters{$char} }) {
+        for my $chan (keys %{ $characters{$char}{$p}{'files'} }) {
+            for my $tag (keys %{ $characters{$char}{$p}{'files'}{$chan} }) {
+                for my $f (keys %{ $characters{$char}{$p}{'files'}{$chan}{$tag} }) {
+                    next if $characters{$char}{$p}{'files'}{$chan}{$tag}{$f} > $MIN_HITS;
+                    delete $characters{$char}{$p}{'files'}{$chan}{$tag}{$f};
+                }
+                delete $characters{$char}{$p}{'files'}{$chan}{$tag}
+                    unless scalar keys %{ $characters{$char}{$p}{'files'}{$chan}{$tag} } > 0;
+            }
+            delete $characters{$char}{$p}{'files'}{$chan}
+                unless scalar keys %{ $characters{$char}{$p}{'files'}{$chan} } > 0;
+        }
+        delete $characters{$char}{$p}
+            unless scalar keys %{ $characters{$char}{$p}{'files'} } > 0;
+    }
+    delete $characters{$char} unless scalar keys %{ $characters{$char} } > 0;
+}
+
+# Because ordering can suck, we want to go through all characters and see if
+# anyone resolves now.  Then keep doing so until we have no changes to make.
+my $fixes;
+do {
+    print "\nStarting adjustment loop\n";
+    $fixes = 0;
+    CHAR: for my $char (keys %characters) {
+        #print "Working on $char\n";
+
+        # Nothing to do if only one character.
+        next CHAR if scalar keys %{ $characters{$char} } == 1;
+
+        # If two characters and one is a '', then easy fix.
+        if (exists $characters{$char}{''}
+            && scalar keys %{ $characters{$char} } == 2) {
+
+            # Get the non empty character.
+            my $other;
+            for my $p (keys %{ $characters{$char} }) {
+                next if $p eq '';
+                $other = $p;
+            }
+
+            # Move the character over.
+            %characters = move_character_owner($char, '', $other, %characters);
+            $fixes++;
+            print "Moving $char from '' to $other\n";
+            next CHAR;
+        }
+
+        # Otherwise we have multiple players for the character.  Go through all
+        # the non '' ones to see if they can be reconciled.
+        for my $p (keys %{ $characters{$char} }) {
+            next if $p eq '';
+            print "Checking $char:$p\n" if $char eq 'Ali';
+            next if exists $players{$p};
+            print "$p is not a player\n";
+            next unless exists $characters{$p};
+            print "$p is a character\n";
+#            print Dumper($characters{$p}), "\n";
+
+            # We now know there's another character with this 'player' name, so
+            # see if they have only one owner.  If so, move everything to use
+            # that actual player name.
+            next unless scalar keys %{ $characters{$p} } == 1;
+            my ($other) = keys %{ $characters{$p} };
+            print "Moving $char from $p to $other\n";
+            %characters = move_character_owner($char, $p, $other, %characters);
+            $fixes++;
+        }
+    }
+    print "Fixes: $fixes\n";
+} until $fixes == 0;
+
+#print to_json(\%characters, {pretty => 1}), "\n";
+store_characters(%characters) unless $options->debug;
+
+exit 0;
+
+__END__
+
+##############################################################################
+# Documentation
+##############################################################################
+
+=head1 NAME
+
+plex-tokenize - Search through given logs and save character information
+
+=head1 SYNOPSIS
+
+    plex-tokenize <log1> [log2] [...]
+
+=head1 DESCRIPTION
+
+plex-tokenize takes Calvin style logs given on the command line and parses them
+for any characters channeled.  It uses a mix of IP matching, bracket-channeling
+syntax, and a very large override file to try to disambiguate who owns the
+character and eliminate non-character lines.
+
+The results are saved to a Storable file, which is updated on subsequent runs,
+saving old data.  The data saved includes the character name, player name,
+and the logs, channels, and tags that they appeared in.  This can later be
+used by subsequent programs to list off characters, track character metadata,
+and help display logs belonging to those characters.
+
+=head1 OPTIONS
+
+=over 4
+
+=item --help|-h
+
+Print usage and exit.
+
+=item --manual|--man
+
+Print this perldoc and exit.
+
+=item --debug
+
+Print extra debugging information while processing logs.
+
+=back
+
+=head1 TODO
+
+We currently ignore characters that have less than a certain number of lines in
+a log (5).  This helps remove mischans and walkthroughs, but means that there
+are cases where we also miss useful information.  One example is if a character
+enters (or worse is first named) just before a log ends and goes to the next.
+This can lead to tools not seeing things people would want.  It might be better
+to have a blacklist with an easy way to edit and rely on community fixes.  It's
+not like there aren't nights when we'll have more than 5 mischans anyway.
+
+Allow for setting the Storable file location.
+
+=head1 SEE ALSO
+
+plex-search
+character-ui
+
+=head1 AUTHOR
+
+Jon Robertson <jonrober@eyrie.org>
+
+=cut

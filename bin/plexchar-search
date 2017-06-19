@@ -1,0 +1,437 @@
+#!/usr/bin/perl
+
+#############################################################################
+# Modules and declarations
+#############################################################################
+
+use 5.010;
+use autodie;
+use strict;
+use warnings;
+
+use lib '/home/jonrober/perl-stuff/';
+
+use Calvin::Logs::Characters;
+use Calvin::Logs::Characters::Tag;
+
+use Data::Dumper;
+use Date::Parse;
+use File::Path qw(mkpath);
+use Getopt::Long::Descriptive;
+use IO::Handle;
+use Net::Remctl::Backend;
+use Storable;
+use Text::ParseWords;
+
+# Our option descriptions, for both defining options and their usage.
+our $OPTIONS;
+our @OPTIONS = (
+    ['help|h',         'print usage (this text) and exit'],
+    ['manual|man',     'print perldoc and exit'],
+    ['startdate=s',    'start searching on YYYY-MM-DD'],
+    ['enddate=s',      'end searching on YYYY-MM-DD'],
+    ['intro_before=s', 'ignore characters introduced after YYYY-MM-DD'],
+    ['intro_after=s',  'ignore characters introduced before YYYY-MM-DD'],
+    ['lastseen=s',     'ignore characters seen after YYYY-MM-DD'],
+    ['minimumlogs=i',  'do not show characters with fewer logs than this'],
+    ['player=s',       'search only for characters from this player'],
+    ['tag=s',          'search only for characters with this tag'],
+    ['charfile=s@',    'read in another character file'],
+);
+our $STARTDATE = 0;
+our $ENDDATE = 0;
+
+# Directories for our wiki directory.
+my $ROOT_DIR = '/home/jonrober/plexwiki/';
+my $CHAR_DIR = $ROOT_DIR . 'characters/';
+my $DATA_DIR = $ROOT_DIR . 'data/';
+
+# Our data files for all character log info and character tags.
+my $CHAR_DATA  = $DATA_DIR . 'characters.store';
+
+#############################################################################
+# Command handlers
+#############################################################################
+
+# Command handler to list all characters that have a given tag.
+sub cmd_character_search {
+    my ($primary, @other_chars) = @_;
+
+    my $chars = Calvin::Logs::Characters->new();
+    $chars->filter($OPTIONS);
+
+    my %logs = $chars->character_logs($primary, @other_chars);
+    for my $key (sort keys %logs) {
+        print $logs{$key}{display};
+        print "\t", join (', ', @{ $logs{$key}{characters} }), "\n";
+    }
+    return;
+}
+
+# Command handler to list all characters.
+sub cmd_character_list {
+    my $config = undef;
+    if ($OPTIONS->charfile) {
+        @{ $config->{character_files} } = @{ $OPTIONS->charfile };
+    }
+
+    my $chars = Calvin::Logs::Characters->new($config);
+    $chars->filter($OPTIONS);
+
+    my %characters = $chars->characters;
+    for my $key (sort keys %characters) {
+		print $characters{$key}{display};
+    }
+
+    return;
+}
+
+# Command handler to list all characters.
+sub cmd_character_usage {
+    my $chars = Calvin::Logs::Characters->new();
+    $chars->filter($OPTIONS);
+
+    my %characters = $chars->raw_characters;
+    for my $char (sort keys %characters) {
+        for my $player (sort keys %{ $characters{$char} }) {
+            my $lines = 0;
+            my $logs = 0;
+            my %c = %{ $characters{$char}{$player}{'files'} };
+            for my $chan (sort keys %c) {
+                for my $tag (sort keys %{ $c{$chan} }) {
+                    for my $log (sort keys %{ $c{$chan}{$tag} }) {
+                        $logs++;
+                        $lines += $c{$chan}{$tag}{$log};
+                    }
+                }
+            }
+            $player = "''" if $player eq '';
+            printf("%-20s %-20s %5d %5d\n", $char, $player, $logs, $lines)
+        }
+    }
+}
+
+# Command handler to list all characters with more than one player.
+sub cmd_character_multiples {
+    my $chars = Calvin::Logs::Characters->new();
+    $chars->filter($OPTIONS);
+
+    my %characters = $chars->raw_characters;
+    for my $char (sort keys %characters) {
+
+        next unless scalar keys %{ $characters{$char} } > 1;
+        for my $player (sort keys %{ $characters{$char} }) {
+            my %c = %{ $characters{$char}{$player}{'files'} };
+            printf("%s:%s\n", $char, $player);
+            for my $chan (sort keys %c) {
+                for my $tag (sort keys %{ $c{$chan} }) {
+                    for my $log (sort keys %{ $c{$chan}{$tag} }) {
+                        my ($short_log) = ($log =~ m{/([^/]+)$});
+                        printf("    %02d: %-60s %s\n", $chan, $tag, $short_log);
+                    }
+                }
+            }
+        }
+        print "\n";
+    }
+}
+
+# Command handler to list all existing tags.
+sub cmd_tag_list {
+    my $tagobj = Calvin::Logs::Characters::Tag->new;
+    my %tags = $tagobj->tags;
+
+    for my $tag (sort keys %tags) {
+        print $tag, "\n";
+    }
+}
+
+# Command handler to create a new tag.
+sub cmd_tag_add {
+    my ($tag) = @_;
+
+    my $tagobj = Calvin::Logs::Characters::Tag->new;
+    $tagobj->add($tag);
+}
+
+# Command handler to delete an existing tag.
+sub cmd_tag_remove {
+    my ($tag) = @_;
+
+    my $tagobj = Calvin::Logs::Characters::Tag->new;
+    $tagobj->remove($tag);
+}
+
+# Command handler to rename an existing tag.
+sub cmd_tag_rename {
+    my ($oldtag, $newtag) = @_;
+
+    my $tagobj = Calvin::Logs::Characters::Tag->new;
+    $tagobj->rename_tag($oldtag, $newtag);
+}
+
+# Command handler to assign a tag to a character.
+sub cmd_tag_assign {
+    my ($tag, $full_character) = @_;
+
+    my $chars                = Calvin::Logs::Characters->new();
+    my %characters           = $chars->characters;
+    my ($character, $player) = $chars->distinguish_char($full_character);
+    my $char_key             = $character . ':' . $player;
+
+    die "character '$character' does not exist\n"
+        unless exists $characters{$char_key};
+
+    my $tagobj = Calvin::Logs::Characters::Tag->new;
+    $tagobj->assign($tag, $char_key);
+}
+
+# Command handler to remove a tag from a character.
+sub cmd_tag_unassign {
+    my ($tag, $full_character) = @_;
+
+    my $chars                = Calvin::Logs::Characters->new();
+    my ($character, $player) = $chars->distinguish_char($full_character);
+    my $char_key             = $character . ':' . $player;
+
+    my $tagobj = Calvin::Logs::Characters::Tag->new;
+    $tagobj->unassign($tag, $char_key);
+}
+
+# Command handler to list all characters that have a given tag.
+sub cmd_tag_characters {
+    my ($tag) = @_;
+
+    my $charobj = Calvin::Logs::Characters->new();
+    $charobj->filter($OPTIONS);
+
+    my $tagobj = Calvin::Logs::Characters::Tag->new;
+    my @matches = $tagobj->characters($tag, $charobj);
+    for my $line (@matches) { print $line }
+}
+
+#############################################################################
+# Main routine
+#############################################################################
+
+# Get errors and output in the same order.
+STDOUT->autoflush;
+
+# Clean up the path name.
+my $fullpath = $0;
+$0 =~ s{ ^ .* / }{}xms;
+
+# Parse command-line options.
+my $usage;
+($OPTIONS, $usage) = describe_options("$0 %o <args>", @OPTIONS);
+if ($OPTIONS->manual) {
+    print "Feeding myself to perldoc, please wait....\n";
+    exec 'perldoc', '-t', $fullpath;
+} elsif ($OPTIONS->help) {
+    print $usage->text;
+    exit 0;
+}
+
+$STARTDATE = str2time($OPTIONS->startdate) if $OPTIONS->startdate;
+$ENDDATE = str2time($OPTIONS->enddate) if $OPTIONS->enddate;
+
+my %commands = (
+		'character' => {
+		    nested => {
+			'search' => {
+			    code     => \&cmd_character_search,
+			    args_min => 1,
+			    syntax   => '<character1> [character2] ...',
+			    summary  => 'Show logs with character(s)',
+			},
+			'list' => {
+			    code     => \&cmd_character_list,
+			    args_min => 0,
+			    args_max => 0,
+			    syntax   => '',
+			    summary  => 'List all characters',
+			},
+            'usage' => {
+			    code     => \&cmd_character_usage,
+			    args_min => 0,
+			    args_max => 0,
+			    syntax   => '',
+			    summary  => 'Show the number of lines and logs for each char',
+			},
+            'multiples' => {
+			    code     => \&cmd_character_multiples,
+			    args_min => 0,
+			    args_max => 0,
+			    syntax   => '',
+			    summary  => 'Show characters with more than one player',
+			},
+		  },
+		},
+        'tag' => {
+		    nested => {
+			'list' => {
+			    code     => \&cmd_tag_list,
+			    args_min => 0,
+			    args_max => 0,
+			    syntax   => '',
+			    summary  => 'List all tags',
+			},
+			'add' => {
+			    code     => \&cmd_tag_add,
+			    args_min => 1,
+			    args_max => 1,
+			    syntax   => '<tag>',
+			    summary  => 'Add a new tag',
+			},
+            'remove' => {
+			    code     => \&cmd_tag_remove,
+			    args_min => 1,
+			    args_max => 1,
+			    syntax   => '<tag>',
+			    summary  => 'Remove a tag',
+			},
+            'rename' => {
+			    code     => \&cmd_tag_rename,
+			    args_min => 2,
+			    args_max => 2,
+			    syntax   => '<oldtag> <newtag>',
+			    summary  => 'Rename an existing tag',
+			},
+			'assign' => {
+			    code     => \&cmd_tag_assign,
+			    args_min => 2,
+			    args_max => 2,
+			    syntax   => '<tag> <character>',
+			    summary  => 'Assign a tag to a character',
+			},
+			'unassign' => {
+			    code     => \&cmd_tag_unassign,
+			    args_min => 2,
+			    args_max => 2,
+			    syntax   => '<tag> <character>',
+			    summary  => 'Remove a tag from a character',
+			},
+			'characters' => {
+			    code     => \&cmd_tag_characters,
+			    args_min => 1,
+			    args_max => 1,
+			    syntax   => '<tag>',
+			    summary  => 'List characters with a tag',
+			},
+	      },
+		},
+);
+
+my $backend = Net::Remctl::Backend->new(
+    {
+        commands    => \%commands,
+        command     => 'complex',
+        help_banner => 'complex help:',
+    }
+);
+my $run = $backend->run;
+$run ||= 0;
+
+exit $run;
+
+__END__
+
+##############################################################################
+# Documentation
+##############################################################################
+
+=head1 NAME
+
+plex-search - Perform search operations on a Plex character data file
+
+=head1 SYNOPSIS
+
+    plex-search character [search|list|usage|multiples]
+
+=head1 DESCRIPTION
+
+plex-search is a general script for listing and debugging data saved by
+plex-tokenize to a data file of characters, their players, and the logs they
+were in.  It can perform general commands to help show what characters are in
+logs for general use, and drills down information used to track rare or
+conflicting characters so that we can decide if they need to be added to an
+override file for plex-tokenize to massage.
+
+=head1 COMMANDS
+
+=over 4
+
+plex-search character [search|list|usage|multiples]
+
+=item character list
+
+List all characters in our data file by name, player, and any aliases.  This
+can be modified by any searches given in the OPTIONS section.
+
+=item character usage
+
+List all characters and their players, with the number of logs and total lines
+across logs they have had.  This is used to help track information for any data
+fixes that might be needed.
+
+=item character search <character> [character] [...]
+
+List all logs and tags that a character or intersection of characters were in.
+
+=item character multiples
+
+List off character names that have more than one possible owner, as well as the
+logs for each appearance.  This is used to help figure if we need to do any
+data fixes for those characters.
+
+=back
+
+=head1 OPTIONS
+
+=over 4
+
+=item --help|-h
+
+Print usage and exit.
+
+=item --manual|--man
+
+Print this perldoc and exit.
+
+=item --intro_before <YYYY-MM-DD>
+
+Show characters who first appeared after the given date.
+
+=item --intro_after <YYYY-MM-DD>
+
+Show characters who first appeared after the given date.
+
+=item --lastseen <YYYY-MM-DD>
+
+Show characters who have not been seen since the given date.
+
+=item --minimumlogs <N>
+
+Show characters who have appeared in at least the given number of logs.
+
+=item --player <name>
+
+Show characters owned by the given player.
+
+=back
+
+=head1 TODO
+
+Have a way to look at multiple storable files, so that we can have people use
+their personal logs as well.
+
+=head1 SEE ALSO
+
+plex-tokenize
+character-ui
+
+=head1 AUTHOR
+
+Jon Robertson <jonrober@eyrie.org>
+
+=cut

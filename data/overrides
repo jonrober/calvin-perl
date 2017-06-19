@@ -1,0 +1,543 @@
+#######################################################################
+# Rename a character
+#######################################################################
+
+# Disambiguating characters where more than one player uses a name.
+ALIAS      Daniel            Sabre         DanielD
+ALIAS      Daniel            MasonK        DanielD
+ALIAS      Karen             Van           KarenL
+ALIAS      Lori              Mek           LoriC
+ALIAS      Nathan            Frobozz       NathanN
+ALIAS      Rose              Sabre         RoseWB
+ALIAS      Titania           MasonK        TitaniaWB
+ALIAS      TitaniaB          MasonK        TitaniaWB
+ALIAS      TitaniaW          MasonK        TitaniaWB
+ALIAS      Tara              ChrisB        TaraD2
+
+# Character renames.
+ALIAS      Anna              Van           Annalynne
+ALIAS      Christabell       Christabele   Frobozz
+ALIAS      June              Van           Yuni
+
+# Aliases and nicknames.
+ALIAS      ArisaA            Philip-M      Arisa
+ALIAS      Aspect2           Van           RachelW
+ALIAS      Avril.2020x       Frobozz       Avril.202x
+ALIAS      Avril.2030        Frobozz       Avril.202x
+ALIAS      Avril.2031        Frobozz       Avril.202x
+ALIAS      Avril.2032        Frobozz       Avril.202x
+ALIAS      Avril.203x        Frobozz       Avril.202x
+ALIAS      Balla             Van           Balal
+ALIAS      Cal\'anna         Van           Cal
+ALIAS      CaroleW           Frobozz       Carole
+ALIAS      Cynthia           Eagle         Tess
+ALIAS      Crescent          Van           Cress
+ALIAS      Dawn.HavenT       Van           Dawn.Twilight
+ALIAS      Dawn.HavenN       Van           Dawn.Twilight
+ALIAS      Dawn.haven        Van           Dawn.Haven
+ALIAS      EstherBunny       MasonK        EstherB
+ALIAS      Fusion            Frobozz       Avril
+ALIAS      Gemma2            Frobozz       Gemma
+ALIAS      Mel               Van           Melanie
+ALIAS      Misty             Van           Aria
+ALIAS      Tempest           Van           Annalynne
+ALIAS      TerriV            Van           Velda
+ALIAS      Tessa             Eagle         Tess
+ALIAS      Tessynth          Eagle         Tess
+ALIAS      Val               Frobozz       Valerie
+ALIAS      Valerie.elf       Frobozz       Valerie
+ALIAS      Zett              Frobozz       Cosette
+ALIAS      Zette             Frobozz       Cosette
+ALIAS      'Holly Bright'    Frobozz       HollyB
+ALIAS      Holly_Bright      Frobozz       HollyB
+ALIAS      HollyBright       Frobozz       HollyB
+ALIAS      Holly.Strawberry  Frobozz       Holly.Berry
+ALIAS      Holly.pixie       Frobozz       Holly.Pixie
+ALIAS      Arisa.C           Frobozz       Risa
+ALIAS      Arisa             Frobozz       Risa
+ALIAS      Haven.Dreams      Frobozz       Haven.Luna
+ALIAS      Haven.lune        Frobozz       Haven.Luna
+ALIAS      Haven.Lune        Frobozz       Haven.Luna
+ALIAS      Haven.fey         Frobozz       Haven.Elf
+ALIAS      Haven.Fae         Frobozz       Haven.Elf
+ALIAS      Haven.fae         Frobozz       Haven.Elf
+ALIAS      Haven.elf         Frobozz       Haven.Elf
+ALIAS      Haven.Sol         Frobozz       Haven.sol
+ALIAS      JuilletC          Frobozz       Juillet
+ALIAS      Julliette         Frobozz       Juillet
+ALIAS      GillianP          Frobozz       Gillian
+ALIAS      HeatherJD         Frobozz       Heather
+ALIAS      Xolcha_Lad        Frobozz       Xolchalad
+ALIAS      Nirveli           Frobozz       Nirvelei
+ALIAS      AvrilC            Frobozz       Avril
+ALIAS      Valundra          Frobozz       Valerie
+ALIAS      Jet-              Frobozz       Jet
+ALIAS      Dawn.Angel        Frobozz       Dawn.angel
+ALIAS      Maelstrom         Frobozz       Mae
+ALIAS      Tess-2            Eagle         Tess
+ALIAS      Chira             Eagle         'Chira Te'
+ALIAS      Harlequin         Mek           Harle
+ALIAS      Rosalee           Mek           Rosalie
+ALIAS      Stephen.Barker    Mek           Mr.Barker
+ALIAS      Fox               Mek           Foxglove
+ALIAS      NAVI              Narnian       Navi
+ALIAS      'Ramona #1'       Narnian       Ramona
+ALIAS      'Ramona #2'       Narnian       Ramona
+ALIAS      Ramona-chan       Narnian       Ramona
+ALIAS      Persephone.Red    Narnian       Persephone
+ALIAS      Persephone.Blue   Narnian       Persephone
+ALIAS      Persephone.Black  Narnian       Persephone
+ALIAS      DerekR.Haven      Narnian       DerekR
+ALIAS      Derek-Chan        Philip-M      Derek
+ALIAS      'Dr. Costigan'    Narnian       Dr.Costigan
+ALIAS      Robyn-angel       Van           Robyn.angel
+ALIAS      Robyn-Angel       Van           Robyn.angel
+ALIAS      Robyn-fae         Van           Robyn.fae
+ALIAS      Robyn.Fae         Van           Robyn.fae
+ALIAS      RobynF            Van           Robyn.fae
+ALIAS      Dawn.Demon        Van           Dawn.demon
+ALIAS      Dawn.Nova         Van           Dawn.Haven
+ALIAS      Dawn.Illusion     Van           Dawn.illusion
+ALIAS      Dawn.Human        Van           Dawn.human
+ALIAS      Dawn.Elf          Van           Dawn.elf
+ALIAS      Erin.2            Van           Erin
+ALIAS      Erin-Johnny       Van           Erin
+ALIAS      Erin.green        Van           Erin
+ALIAS      Erin.pregnant     Van           Erin
+ALIAS      Amelianie         Van           Melanie
+ALIAS      Rachel            Van           RachelW
+ALIAS      Tara              Van           TaraD
+ALIAS      Sara              Van           SARA
+ALIAS      Raven             Van           Erin
+ALIAS      Rae               Mek           Ray
+ALIAS      Faith             Van           Faye
+ALIAS      Arisa-Dragon      Philip-M      Arisa
+ALIAS      Arisa-Oh-ki       Philip-M      Arisa
+ALIAS      Autumn(C)         Sabre         Sabre
+ALIAS      Autumn(c)         Sabre         Sabre
+ALIAS      Banana            GC            Banana_Jr
+ALIAS      Cassipoea         Frobozz       Cassiopia
+ALIAS      Chibi-Cal         Philip-M      Cal
+ALIAS      600.Summer-three  R_M           600.Summer
+ALIAS      600.Summer-two    R_M           600.Summer
+ALIAS      Ammy              Van           Amelia
+ALIAS      Function          Van           Amelia
+ALIAS      Hal               Van           Halthane
+ALIAS      Frost             Frobozz       Julie
+ALIAS      Lanie             Van           Melanie
+ALIAS      Mal               Van           Mallory
+ALIAS      Mara              Van           Melanie
+ALIAS      Merle             Van           Melanie
+ALIAS      Mischief          Van           Amelia
+ALIAS      Neon              Van           Sienna
+ALIAS      Angelica          Philip-M      Angie
+ALIAS      Angie-Oh-Ki       Philip-M      Angie
+ALIAS      Angie-oh-ki       Philip-M      Angie
+ALIAS      Antperson         MasonK        Sara
+ALIAS      Carnival          Frobozz       Tranzie
+ALIAS      Campagne          Van           Melanie
+ALIAS      Brandy            Van           Cognac
+ALIAS      Conn              Van           Cognac
+ALIAS      Conn.Elf          Van           Cognac
+ALIAS      Conn.elf          Van           Cognac
+ALIAS      Edge              Narnian       Rin
+ALIAS      Evangeline        Eagle         Tess
+ALIAS      GaiaBar           Philip-M      Gaia
+ALIAS      GlenP             MasonK        Glen
+ALIAS      Gweyndolyn        Frobozz       Gwyendolyn
+ALIAS      Halthan           Van           Halthane
+ALIAS      Harl              Mek           Harle
+ALIAS      Holly.goth        Frobozz       Holly.Goth
+ALIAS      Honi              Frobozz       Heather
+ALIAS      Tondi             Van           Terri
+ALIAS      JackB.pikachu     ChrisB        JackB
+ALIAS      Jack              ChrisB        JackB
+ALIAS      KageAvril         ChrisB        Kage
+ALIAS      Rae               Van           Manx
+ALIAS      Kari              Van           Manx
+ALIAS      Kalli             Van           Manx
+ALIAS      Kaze              ChrisB        KazeElf
+ALIAS      KennethB          MasonK        Kenneth
+ALIAS      Kid_Avatar        Sabre         'Kid Avatar'
+ALIAS      Lorvha            Frobozz       Lorvah
+ALIAS      Lynnette          MasonK        LynnetteG
+ALIAS      Mae.demon         Frobozz       Mae
+ALIAS      Mae.fae           Frobozz       Mae
+ALIAS      MIKE.2035         Sabre         MIKE
+ALIAS      MIKE.2X           Sabre         MIKE
+ALIAS      MIKE.ml           Sabre         MIKE
+ALIAS      Raeidi            Frobozz       Raedi
+ALIAS      'Sailor D'        Van           SailorD
+
+# Typos and alternate spellings.
+ALIAS      'Tim Ward-Burns'  MasonK        Tim
+ALIAS      Acacia\`          MasonK        Acacia
+ALIAS      Aphrodisia        Frobozz       Aphrodesia
+ALIAS      Aureallia         Frobozz       Aurelliea
+ALIAS      Aurellia          Frobozz       Aurelliea
+ALIAS      Aurellea          Frobozz       Aurelliea
+ALIAS      Brier             Frobozz       Briar
+ALIAS      Cassiope          Frobozz       Cassiopia
+ALIAS      Cassiopea         Frobozz       Cassiopia
+ALIAS      Cozette           Frobozz       Cosette
+ALIAS      Crimsyn           Mek           Crymsyn
+ALIAS      DayG              Sabre         Day
+ALIAS      Ehaung            Eagle         Ehuang
+ALIAS      Fawna             MasonK        Fauna
+ALIAS      halla             Van           Halla
+ALIAS      Jacquie           Van           Jacqui
+ALIAS      Joscelyne         Frobozz       Josclyn
+ALIAS      Julie             MasonK        Julia
+ALIAS      karina            Van           Karina
+ALIAS      Maddy             Sabre         Maddie
+ALIAS      Madeline          Sabre         Maddie
+ALIAS      Marjorlain        Sabre         Marjolaine
+ALIAS      Marjorlane        Sabre         Marjolaine
+ALIAS      Marjolane         Sabre         Marjolaine
+ALIAS      Number            Sabre         Numbers
+ALIAS      Pammie            Van           Pammy
+ALIAS      Prss              ChrisB        Priss
+ALIAS      Reflecs           MasonK        Reflects
+ALIAS      Rhea:             Mek           Rhea
+ALIAS      SArah             MasonK        SarahD
+ALIAS      SArahD            MasonK        SarahD
+ALIAS      Tcnchi            Van           Tenchi
+ALIAS      Terriw            MasonK        TerriW
+ALIAS      Timohy            MasonK        Timothy
+ALIAS      Dawn.demonn       Van           Dawn.demon
+ALIAS      Black_Cat         Mek           BlackCat
+ALIAS      Cedra             Frobozz       Cedric
+ALIAS      'Dr. Burns'       Sabre         Dr.Burns
+ALIAS      'Doctor Burns'    Sabre         Dr.Burns
+ALIAS      'Dr. Green'       Sabre         Dr.Green
+ALIAS      'Doctor Green'    Sabre         Dr.Green
+ALIAS      Memorex           Sabre         Mem
+ALIAS      Michael           MasonK        MichaelD
+ALIAS      Micronix          Narnian       Nix
+ALIAS      Momentum          MasonK        Alice
+ALIAS      Mr.Shephard       Sabre         Mr.Shepherd
+ALIAS      Mordacai          Frobozz       Mordecai
+ALIAS      Nineva            Frobozz       Ninevah
+ALIAS      Ninevaha          Frobozz       Ninevah
+ALIAS      Oscilla           Frobozz       Oscillia
+ALIAS      Acia              MasonK        Acacia
+ALIAS      Cally             Van           Callie
+
+# Overspecified characters.
+ALIAS      'Tali 1'          Narnian       Tali
+ALIAS      'Tali 2'          Narnian       Tali
+ALIAS      Laurarabbit       MasonK        Laura
+ALIAS      Lisa.Basement     Narnian       Lisa
+ALIAS      Lisa.PortalRoom   Narnian       Lisa
+ALIAS      Nix.2031          Narnian       Nix
+ALIAS      Nix.first         Narnian       Nix
+ALIAS      Nix.Following     Narnian       Nix
+ALIAS      Nix.Romanova      Narnian       Nix
+ALIAS      Nix.Room          Narnian       Nix
+ALIAS      Nix.Room.2        Narnian       Nix
+ALIAS      Persephone.Green  Narnian       Persephone
+ALIAS      SD-Aeri           Philip-M      Aerianne
+ALIAS      SD-Gaia           Philip-M      Gaia
+ALIAS      Tali.1            Narnian       Tali
+ALIAS      Tali.First        Narnian       Tali
+ALIAS      Tali.Juilletside  Narnian       Tali
+ALIAS      Tali.Scanner      Narnian       Tali
+ALIAS      Terri-Reflection  Van           Terri
+ALIAS      Tess.A            Eagle         Tess
+ALIAS      Tess.B            Eagle         Tess
+ALIAS      Trice(w)          Mek           Trice
+ALIAS      Trice3            Mek           Trice
+ALIAS      Tristan-back-then MasonK        Tristan
+ALIAS      Winter(C)         MasonK        WinterC
+ALIAS      Sarah             Philip-M      SarahD
+ALIAS      Sam_A             Philip-M      Samantha_A
+ALIAS      Sam-A             Philip-M      Samantha_A
+ALIAS      'Serena #1'       R_M           Serena
+ALIAS      'Serena #2'       R_M           Serena
+
+# General occasional mistakes.
+ALIAS      April             Sabre         Ariel
+ALIAS      ' Sara'           MasonK        Sara
+ALIAS      Cadell            Narnian       Cadel
+ALIAS      Ceelie            Frobozz       Celie
+
+# Privlogs so might want separation.
+ALIAS       Busty             Eagle         Tess
+REPLAYER    Busty             ''            Eagle
+
+#######################################################################
+# Rename a character's player
+#######################################################################
+
+# Eag is just confusing since we can't trust when he logs on from
+# haven.eyrie.org. :)
+REPLAYER    Anaya             ''            Eagle
+REPLAYER    Bramble           ''            Eagle
+REPLAYER    Bramble           Christine     Eagle
+REPLAYER    Bramble           Muse          Eagle
+REPLAYER    Cache             ''            Eagle
+REPLAYER    Cache             Tess          Eagle
+REPLAYER    Christie          ''            Eagle
+REPLAYER    Christie          ~~            Eagle
+REPLAYER    Christie          Christie      Eagle
+REPLAYER    Christie          Eaglelynx     Eagle
+REPLAYER    Christie          Muse          Eagle
+REPLAYER    Christie          Tess          Eagle
+REPLAYER    Christine         ''            Eagle
+REPLAYER    Christine         Bramble       Eagle
+REPLAYER    Christine         Christie      Eagle
+REPLAYER    Code              ''            Eagle
+REPLAYER    Dusk              ''            Eagle
+REPLAYER    Eaglelynx         ''            Eagle
+REPLAYER    Eaglelynx         Christie      Eagle
+REPLAYER    Eaglelynx         Christine     Eagle
+REPLAYER    Kisho             ''            Eagle
+REPLAYER    Megan             ''            Eagle
+REPLAYER    Muse              ''            Eagle
+REPLAYER    Muse              Christie      Eagle
+REPLAYER    Muse              Christine     Eagle
+REPLAYER    Muse              Muse          Eagle
+REPLAYER    Pat               ''            Eagle
+REPLAYER    Penny             ''            Eagle
+REPLAYER    Shianna           ''            Eagle
+REPLAYER    Tess              ''            Eagle
+REPLAYER    Tess              `             Eagle
+REPLAYER    Tess              ~~            Eagle
+REPLAYER    Tess              Tess          Eagle
+REPLAYER    Tessa             ''            Eagle
+REPLAYER    Zeus              ''            Eagle
+
+# Mech characters with similar problems.
+REPLAYER    Esther            ~~            Mek
+REPLAYER    Foxglove          MasonK        Mek
+REPLAYER    Nick              ~!            Mek
+REPLAYER    PeterW             Van          Mek
+
+# Some random problems for Frob.
+REPLAYER    Anna              Jen           Frobozz
+REPLAYER    Artisana          Chloe         Frobozz
+REPLAYER    Avril             Dryad         Frobozz
+REPLAYER    Avril             Mek           Frobozz
+REPLAYER    Dolorosso         Van           Frobozz
+REPLAYER    Dustin            Calypso       Frobozz
+REPLAYER    Justin            Nikki         Frobozz
+REPLAYER    Ninevah           Van           Frobozz
+REPLAYER    Nirvelei          Jesse         Frobozz
+REPLAYER    Nirvelei          Van           Frobozz
+REPLAYER    Yumi              Van           Frobozz
+REPLAYER    Heather           Van           Frobozz
+REPLAYER    Jez               Frobozz       MasonK
+REPLAYER    Juillet           Avril         Frobozz
+REPLAYER    Avril             Juillet       Frobozz
+REPLAYER    Avril             Tawny         Frobozz
+REPLAYER    Liz               Frobozz       MasonK
+REPLAYER    Nikki             Van           Frobozz
+REPLAYER    Adcrianne         Tawny         Frobozz
+
+# And any others.
+REPLAYER    Kaze              ''            ChrisB
+REPLAYER    Taiko             ''            ChrisB
+REPLAYER    Vlad              ''            ChrisB
+REPLAYER    Rip               Jesse         Sabre
+REPLAYER    Tat               MasonK        GC
+REPLAYER    Susan             ''            MasonK
+
+# Sabre/Mason/other confusions from them regularly sharing IPs.
+REPLAYER    Acacia            Sabre         MasonK
+REPLAYER    Ali               Sabre         MasonK
+REPLAYER    Angela            Sabre         MasonK
+REPLAYER    'Doctor Green'    MasonK        Sabre
+REPLAYER    Donella           Sabre         MasonK
+REPLAYER    Dorothy           Sabre         MasonK
+REPLAYER    Dreams            Sabre         MasonK
+REPLAYER    Dreamweaver       Sabre         MasonK
+REPLAYER    Jackie            Sabre         MasonK
+REPLAYER    Lucas             Sabre         MasonK
+REPLAYER    Nicholas          Sabre         MasonK
+REPLAYER    Slapstick         Sabre         MasonK
+REPLAYER    SusanP            Sabre         MasonK
+REPLAYER    Teke              Sabre         MasonK
+REPLAYER    Tim               Sabre         MasonK
+REPLAYER    Titan_Lass        Sabre         MasonK
+REPLAYER    Trashman          MasonK        Sabre
+REPLAYER    Visions           Sabre         MasonK
+REPLAYER    Vixen             Sabre         MasonK
+REPLAYER    Sam               Dreams        MasonK
+REPLAYER    Bethany           Alice         MasonK
+REPLAYER    Catalina          Sabre         MasonK
+REPLAYER    Elizabeth         Athena        Sabre
+REPLAYER    Ethry             Ariel         Sabre
+REPLAYER    Freya             Eagle         Sabre
+REPLAYER    Lowell            Sabre         MasonK
+REPLAYER    Marjolaine        Frobozz       Sabre
+REPLAYER    Nilla             Van           Sabre
+REPLAYER    Roberto           Sabre         MasonK
+REPLAYER    TimB              Lowell        Sabre
+REPLAYER    Toni              Sabre         MasonK
+REPLAYER    Tristan           Lowell        Sabre
+REPLAYER    Tristan           Tristan       Sabre
+REPLAYER    Alice             Alicia        MasonK
+REPLAYER    Lowell            Sabre         MasonK
+
+# Spams that make it look like a different person owns a character.
+REPLAYER    Alice             Sabre         MasonK
+REPLAYER    Amelia            Christie      Van
+REPLAYER    Amelia            Eagle         Van
+REPLAYER    Aquamarine        Van           Frobozz
+REPLAYER    Brooklyn          Frobozz       Sabre
+REPLAYER    Carole            Van           Frobozz
+REPLAYER    Celia             Van           Frobozz
+REPLAYER    Centia            Van           Mek
+REPLAYER    Christi           Sabre         MasonK
+REPLAYER    Colt              Mek           Frobozz
+REPLAYER    Danielle          Mek           Frobozz
+REPLAYER    Dawn              Frobozz       Van
+REPLAYER    Esther            Frobozz       Mek
+REPLAYER    Glen              Sabre         MasonK
+REPLAYER    HeatherN          Van           Frobozz
+REPLAYER    Jet               Van           Frobozz
+REPLAYER    Joshua            Sabre         MasonK
+REPLAYER    Kimberly          MasonK        Narnian
+REPLAYER    Laura             Sabre         MasonK
+REPLAYER    Liz               Sabre         MasonK
+REPLAYER    Lori              Sabre         MasonK
+REPLAYER    Lowell            Sabre         MasonK
+REPLAYER    Manda             Sabre         MasonK
+REPLAYER    Momentum          Sabre         MasonK
+REPLAYER    Nova              Van           Frobozz
+REPLAYER    Sam               Sabre         MasonK
+REPLAYER    Stella            Van           Frobozz
+REPLAYER    Tierra            Mek           Frobozz
+REPLAYER    Topaz             Sabre         MasonK
+REPLAYER    Tranzie           Van           Frobozz
+
+# Character transferred ownership early on.
+REPLAYER    Nyx               Mek           Van
+REPLAYER    Luci              Frobozz       Van
+
+# Conflicts with one person at another person's home.
+REPLAYER    Yumi              VanFood       Frobozz
+
+# Random things.
+REPLAYER    Gaia              MasonK        Philip-M
+REPLAYER    Elayne            Van           Mek
+REPLAYER    MIKE              Eagle         Sabre
+REPLAYER    Trice             Van           Mek
+REPLAYER    Blake             Narnian       Frobozz
+REPLAYER    Joy               Mek           Van
+REPLAYER    Laura             ''            Frobozz
+REPLAYER    Sam_A             ''            Philip-M
+REPLAYER    Arconius          ''            R-Type
+REPLAYER    Kal               ''            R-Type
+REPLAYER    Awn               ''            Phoenix
+ALIAS      Black_Cat         ''            Mek
+ALIAS      Acia              ''            MasonK
+
+#######################################################################
+# Aliases, typoes, and bracket-channeling connections from players
+#######################################################################
+
+PLAYERNICK  ~               Eagle
+PLAYERNICK  ~~_             Mek
+PLAYERNICK  +               Frobozz
+PLAYERNICK  ++              Frobozz
+PLAYERNICK  ++_             Frobozz
+PLAYERNICK  ==              Frobozz
+PLAYERNICK  --              Frobozz
+PLAYERNICK  -               Frobozz
+PLAYERNICK  +_              Frobozz
+PLAYERNICK  =               Frobozz
+PLAYERNICK  M               MasonK
+PLAYERNICK  =M=             MasonK
+PLAYERNICK  m               MasonK
+PLAYERNICK  -m              MasonK
+PLAYERNICK  ]\/[            MasonK
+PLAYERNICK  ~`~             Sabre
+PLAYERNICK  !~~             Mek
+PLAYERNICK  !~              Mek
+PLAYERNICK  ~!~             Mek
+PLAYERNICK  ~~              Mek
+PLAYERNICK  ~~~             Mek
+PLAYERNICK  ~~~+            Mek
+PLAYERNICK  N               Narnian
+PLAYERNICK  _               Mek
+PLAYERNICK  <M>             Philip-M
+PLAYERNICK  <.>             Philip-M
+PLAYERNICK  <^<             GC
+PLAYERNICK  <^>             GC
+PLAYERNICK  cb              ChrisB
+PLAYERNICK  Cb              ChrisB
+PLAYERNICK  CB              ChrisB
+PLAYERNICK  Chris_B         ChrisB
+PLAYERNICK  Chrisb          ChrisB
+PLAYERNICK  E               Eagle
+PLAYERNICK  ENarn           Narnian
+PLAYERNICK  eNarn           Narnian
+PLAYERNICK  Froboz          Frobozz
+PLAYERNICK  Frob            Frobozz
+PLAYERNICK  GC_Win          GC
+PLAYERNICK  M               MasonK
+PLAYERNICK  Masonk          MasonK
+PLAYERNICK  MasonSS         MasonK
+PLAYERNICK  masonK          MasonK
+PLAYERNICK  MasonAce        MasonK
+PLAYERNICK  Mechaman        Mek
+PLAYERNICK  Narn            Narnian
+PLAYERNICK  V               Van
+PLAYERNICK  Mech            Mek
+PLAYERNICK  MekZ            Mek
+PLAYERNICK  Mek+            Mek
+PLAYERNICK  N               Narnian
+PLAYERNICK  N-in-S          Narnian
+PLAYERNICK  Mason           MasonK
+PLAYERNICK  Frob            Frobozz
+PLAYERNICK  SabreCR         Sabre
+PLAYERNICK  MasonWireless   MasonK
+PLAYERNICK  ChrisB2         ChrisB
+PLAYERNICK  MasonTF5        MasonK
+PLAYERNICK  MasonKPC        MasonK
+PLAYERNICK  WeaverServ      Philip-M
+PLAYERNICK  <WeaverServ>    Philip-M
+PLAYERNICK  Philip          Philip-M
+PLAYERNICK  R_M2            R_M
+PLAYERNICK  ..              Van
+PLAYERNICK  Mechaman        Mek
+PLAYERNICK  RT_Office       R-Type
+PLAYERNICK  AC              Gina
+PLAYERNICK  S2              Sabre
+
+# Various players with numbers behind.
+PLAYERREGEX ^Mek\\d+$       Mek
+PLAYERREGEX ^Van\\d+$       Van
+PLAYERREGEX ^R_M\\d+$       R_M
+PLAYERREGEX ^GC\\d+$        GC
+PLAYERREGEX ^Narnian\\d+$   Narnian
+PLAYERREGEX ^ChrisB\\d+$    ChrisB
+PLAYERREGEX ^Frobozz\\d+$   Frobozz
+PLAYERREGEX ^Sabre\\d+$     Sabre
+PLAYERREGEX ^MasonK\\d+$    MasonK
+PLAYERREGEX ^Jesse\\d+$     Jesse
+
+# Various nick styles where we append something to nickname for status.
+PLAYERREGEX ^Van[A-Z]       Van
+PLAYERREGEX ^Mason[A-JL-Z]  MasonK
+PLAYERREGEX ^Narni[A-Z]$    Narnian
+PLAYERREGEX ^MasonK-        MasonK
+PLAYERREGEX ^Travis\\.      Travis
+PLAYERREGEX ^R_M\\.         R_M
+PLAYERREGEX ^ChrisB\\.      ChrisB
+
+# Phil nicks and character server connects.
+PLAYERREGEX ^PJM-                   Philip-M
+PLAYERREGEX ^[A-Z]+[Ss]erv\\d*$     Philip-M
+PLAYERREGEX ^<[A-Z]+[Ss]erv\\d*>$   Philip-M
+PLAYERREGEX ^<Hallows\\d*>$   Philip-M
+
+#######################################################################
+# Shared host addresses to not try to map to specific players
+#######################################################################
+
+SKIPADDRESS conrail.cs.columbia.edu
+SKIPADDRESS haven.eyrie.org
+SKIPADDRESS haven.stanford.edu
+SKIPADDRESS 204.124.238.249

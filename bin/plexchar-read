@@ -1,0 +1,502 @@
+#!/usr/bin/perl -w
+
+use 5.010;
+use autodie;
+use strict;
+use warnings;
+
+use lib '/home/jonrober/perl-stuff/';
+use vars qw();
+
+use Curses;
+use Curses::UI;
+use Calvin::Logs::Characters;
+use Calvin::Logs::Characters::Tag;
+use Calvin::Logs::Logread qw(&action_quit &action_save &read_prefs
+    &write_prefs);
+use Calvin::Logs::Split;
+
+use Getopt::Long::Descriptive;
+
+# Our option descriptions, for both defining options and their usage.
+our $OPTIONS;
+our @OPTIONS = (
+    ['help|h',         'print usage (this text) and exit'],
+    ['manual|man',     'print perldoc and exit'],
+    ['intro_before=s', 'ignore characters introduced after YYYY-MM-DD'],
+    ['intro_after=s',  'ignore characters introduced before YYYY-MM-DD'],
+    ['lastseen=s',     'ignore characters seen after YYYY-MM-DD'],
+    ['minimumlogs=i',  'do not show characters with fewer logs than this'],
+    ['player=s',       'search only for characters from this player'],
+    ['tag=s',          'search only for characters with this tag'],
+    ['charfile=s@',    'read in another character file'],
+);
+
+# Ignore any pipings.. we're setting this up for splitting logs out, later.
+local $SIG{PIPE} = 'IGNORE';
+$| = 1;
+
+# Values to use to track where we last were between pages.
+my @CURRENT_CHARS = ();
+
+# Load our preferences, overriding a few that don't fit for this program.
+my %prefs = read_prefs();
+$prefs{follow}      = 0;
+$prefs{follow_base} = 0;
+
+# Clean up the path name.
+my $fullpath = $0;
+$0 =~ s{ ^ .* / }{}xms;
+
+# Parse command-line options.
+my $usage;
+($OPTIONS, $usage) = describe_options("$0 %o <args>", @OPTIONS);
+if ($OPTIONS->manual) {
+    print "Feeding myself to perldoc, please wait....\n";
+    exec 'perldoc', '-t', $fullpath;
+} elsif ($OPTIONS->help) {
+    print $usage->text;
+    exit 0;
+}
+
+# Load our character storable files from our log directories.
+my @charfiles;
+for my $logdir (@{ $prefs{logdir} }) {
+    my $charfile = $logdir . '/characters.store';
+    next unless -f $charfile;
+    push (@charfiles, $charfile);
+}
+die "no logdirs found with a characters.store file\n" unless @charfiles;
+my $options;
+$options->{character_files} = \@charfiles;
+
+my $CHAROBJ = Calvin::Logs::Characters->new($options);
+$CHAROBJ->filter($OPTIONS);
+my $TAGOBJ = Calvin::Logs::Characters::Tag->new;
+
+# And now make sure any errors don't mess up our screen.  We'll change this
+#  for debugging, when need be.
+#open STDERR, "> /dev/null";
+open STDERR, "> test.errors";
+
+#############################################################################
+# Basic Screen Setup
+#############################################################################
+
+# Create the root object for all our user interfacing.
+my $CUI = new Curses::UI (
+       					  -clear_on_exit => 1,
+						  -debug         => 0,
+						  -intellidraw   => 1,
+						 );
+
+# Create the windows and their default settings.  We define the actual window
+# contents further below in functions, since the contents will vary based on
+# data.
+$CUI->add(
+          'mainwindow', 'Window',
+          -title 		 => 'Logs',
+          -intellidraw  => 1,
+          -border       => 1,
+          -titlereverse => 0,
+          -padtop       => 0,
+          -padbottom    => 0,
+          -ipad         => 1
+);
+$CUI->add(
+          'preferences', 'Window',
+          -title 		  => 'Preferences',
+          -intellidraw  => 1,
+          -border       => 1,
+          -titlereverse => 0,
+          -padtop       => 0,
+          -padbottom    => 0,
+          -ipad         => 1
+);
+$CUI->add(
+          'preferences_query', 'Window',
+          -title 	=> 'Preferences',
+          -centered => 1,
+          -height   => 9,
+          -width    => 60,
+          -border   => 1,
+          -ipad     => 2,
+);
+
+########################################################################
+# Final UI Setup and kickoff
+########################################################################
+
+# Setup keybindings
+$CUI->set_binding( sub{ action_quit($CUI) }, "\cQ" );
+$CUI->set_binding( sub{ action_quit($CUI) }, "q" );
+
+$CUI->set_binding( sub{ shift()->root->focus('menubar') }, "\cX" );
+$CUI->set_binding( sub{ action_save('plain_file', $CUI) }, "\cS" );
+$CUI->set_binding( sub{ help_view() }, "\cH" );
+
+# If we were given a list of arguments, then those are characters to look up
+# and start with on the character list screen.
+if (@ARGV) {
+	@CURRENT_CHARS = @ARGV;
+	menu_character_logs('', @ARGV);
+} else {
+	menu_character_list();
+}
+$CUI->getobj('mainwindow')->focus;
+$CUI->mainloop();
+
+#############################################################################
+# Selection functions
+#############################################################################
+
+# When we request to select a character, verify the selection and dispatch to
+# either the list of logs or back to the list of characters.
+sub select_character() {
+	my ($listbox) = @_;
+    my $label     = $listbox->parent->getobj('navlabel');
+    my @sel       = $listbox->get;
+
+	if (@sel) {
+		my $selected = $sel[0];
+		@CURRENT_CHARS = ($selected);
+		menu_character_logs('', $selected);
+	} else {
+		menu_character_list(@CURRENT_CHARS);
+	}
+}
+
+# Act on the request to view a character log.  Get the data for that combo and
+# then shift to split out the log.
+sub select_character_log() {
+	my ($listbox) = @_;
+    my $label     = $listbox->parent->getobj('navlabel');
+    my @sel       = $listbox->get;
+
+	if (@sel) {
+		my $selected = $sel[0];
+		if ($selected eq 'BACK') {
+			menu_character_list(@CURRENT_CHARS);
+		} else {
+
+			# Snatch up all the useful information from our menu hash.  Always
+			# assume base is 1 since we don't want to roll over.
+            my $userdata = $listbox->parent->userdata;
+            my $channel  = $userdata->{$selected}{channel};
+			my $fname    = $userdata->{$selected}{fname};
+            my $header   = join(', ', @{ $userdata->{$selected}{characters}});
+			my $base     = 1;
+			my $offset   = 0;
+
+			# Drop out of curses mode just long enough to split out the log,
+			# then return back to curses mode.
+			$CUI->leave_curses();
+
+            # Set up our channel split.
+    		my $split = Calvin::Logs::Split->new;
+    		$split->preferences(\%prefs);
+    		$split->offset($offset);
+    		$split->filename($fname);
+    		$split->channel($channel);
+            $split->log_header($header);
+
+    		$split->do_split;
+			$CUI->reset_curses();
+
+			# Rebuild the character log menu again to pick up where we were.
+			menu_character_logs($selected, @CURRENT_CHARS);
+		}
+
+	} else {
+        menu_character_list(@CURRENT_CHARS);
+	}
+}
+
+# Given a listbox and a selection id, move through the list until we find the
+# selection and leave the cursor there.  This will let us resume an earlier
+# selection after coming back from logs.
+sub resume_selection {
+	my ($navlist, $type, $sel, @values) = @_;
+
+    my $userdata = $navlist->parent->userdata;
+	if ($sel ne '' && exists $userdata->{$sel}) {
+		my $position = 0;
+		for (my $i = 0; $i < @values; $i++) {
+			last if $sel eq $values[$i];
+			$navlist->option_next;
+		}
+	}
+	return $navlist;
+}
+
+#############################################################################
+# Main screen
+#############################################################################
+
+# Define a list of all possible characters.
+sub menu_character_list {
+	my ($sel) = @_;
+	$sel ||= '';
+
+    # Load the menubar for this screen.
+    menu_characters($CUI);
+
+	# Go through the items in the menu and delete each, if they already exist.
+    # Clearing this screen to start fresh.
+    my $window = $CUI->getobj('mainwindow');
+    if ($window->getobj('navlabel')) { $window->delete('navlabel') }
+    if ($window->getobj('navlist'))  { $window->delete('navlist')  }
+
+    # First add the label to the screen of what character we're looking at.
+    $window->add(
+					'navlabel', 'Label',
+					-width 		 => -1,
+					-bold 		 => 1,
+					-text 		 => 'Characters',
+					-intellidraw => 1,
+				   );
+
+    # We need a label list of what to display, along with a simpler display of
+	# the values each has.  These also will save a list of our main menu to a
+	# global variable to examine in different functions.
+    my (%labels, @values);
+
+	# Find the list of all possible characters and then save it to the various
+	# data structures.
+    my %characters = $CHAROBJ->characters;
+    $window->userdata(\%characters);
+    for my $key (sort keys %characters) {
+		$labels{$key} = $characters{$key}{display};
+		push (@values, $key);
+    }
+
+    # Now build a listbox of each character.
+    my $navlist = $window->add(
+								  'navlist', 'Listbox',
+								  -y           => 2,
+								  -values  	   => \@values,
+								  -labels      => \%labels,
+								  -title       => 'Characters',
+								  -vscrollbar  => 1,
+								  -onchange    => \&select_character,
+								  -intellidraw => 1,
+								 );
+
+    # Then give the window focus to make sure it's on top and the changes are
+    # updated.
+	$navlist = resume_selection($navlist, 'characters', $sel, @values);
+    $navlist->focus();
+}
+
+# Define the list of logs for a specific given character.
+sub menu_character_logs {
+    my ($sel, @characters) = @_;
+	$sel ||= '';
+
+    # Load the menubar for this screen.
+    menu_logs($CUI);
+
+    # Go through the items in the menu and delete each, if they already exist.
+    # Clearing this screen to start fresh.
+    my $window = $CUI->getobj('mainwindow');
+    if ($window->getobj('navlabel')) { $window->delete('navlabel') }
+    if ($window->getobj('navlist'))  { $window->delete('navlist')  }
+
+    # First add the label to the screen of what character we're looking at.
+	my $characters = join (', ', sort @characters);
+    $window->add(
+					'navlabel', 'Label',
+					-width 		 => -1,
+					-bold 		 => 1,
+					-text 		 => "Logs for $characters",
+					-intellidraw => 1,
+				   );
+
+	# We need a label list of what to display, along with a simpler display of
+	# the values each has.  These also will save a list of our main menu to a
+	# global variable to examine in different functions.
+    my (%labels, @values);
+
+	# Prefill with a back command to the previous menu.
+	push (@values, 'BACK');
+	$labels{'BACK'} = 'Back to character list';
+
+	# Find the list of all possible characters and then save it to the various
+	# data structures.
+    my %logs = $CHAROBJ->character_logs(@characters);
+    $window->userdata(\%logs);
+    for my $key (sort keys %logs) {
+		$labels{$key} = $logs{$key}{display};
+		push (@values, $key);
+    }
+
+    # Now that we have the information we need, build the list of channels
+    #  and dates.  The function listbox_callback is called when we select an
+    #  item.
+    my $navlist = $window->add(
+								  'navlist', 'Listbox',
+								  -y           => 2,
+								  -values  	   => \@values,
+								  -labels      => \%labels,
+								  -title       => 'Channels',
+								  -vscrollbar  => 1,
+								  -onchange    => \&select_character_log,
+								  -intellidraw => 1,
+								 );
+
+    # Then give the window focus to make sure it's on top and the changes are
+    #  updated.
+	$navlist = resume_selection($navlist, 'logs', $sel, @values);
+    $navlist->focus();
+}
+
+########################################################################
+# Menubar.
+########################################################################
+
+sub menu_characters {
+    my ($cui) = @_;
+
+    my $file_menu = [
+    		 {
+    		     -label => 'Quit program',
+    		     -value => sub { action_quit($cui) }
+    		 },
+    		 ];
+
+    # Primary menu bar itself, just containing the file options.
+    my $main_menu = [
+    	    { -label => 'File', -submenu => $file_menu         },
+    ];
+    $cui->delete('menubar') if $cui->getobj('menubar');
+    $cui->add('menubar', 'Menubar', -menu => $main_menu);
+}
+
+sub menu_logs {
+    my ($cui) = @_;
+
+    my $file_menu = [
+    		 {
+    		     -label => 'Save Log',
+    		     -value => sub { action_save('plain_file', $cui) }
+    		 },
+    		 {
+    		     -label => 'Save Log as HTML',
+    		     -value => sub { action_save('HTML_file', $cui) }
+    		 },
+    		 {
+    		     -label => 'Quit program',
+    		     -value => sub { action_quit($cui) }
+    		 },
+    		 ];
+
+    # Primary menu bar itself, just containing the file options.
+    my $main_menu = [
+    	    { -label => 'File', -submenu => $file_menu         },
+    ];
+    $cui->delete('menubar') if $cui->getobj('menubar');
+    $cui->add('menubar', 'Menubar', -menu => $main_menu);
+}
+
+########################################################################
+# Help Screen
+########################################################################
+
+# Brings up the help screen, which defines the various keys which may be used.
+sub help_view {
+    $CUI->status('This is a test.');
+    $CUI->nostatus;
+}
+
+exit 0;
+
+__END__
+
+##############################################################################
+# Documentation
+##############################################################################
+
+=head1 NAME
+
+character-ui - Curses::UI based access to characters and their logs
+
+=head1 SYNOPSIS
+
+    character-ui [character1] [character2] [...]
+
+=head1 DESCRIPTION
+
+character-ui is a menu interface using Curses::UI, that lists all characters
+found in calvin logs and lets you view the logs for specific characters.  The
+main purpose is to quickly find drill down to recall context for specific
+scenes and events for a character.
+
+If given one or more characters on the command line, it will skip the character
+screen and immediately show only the logs for that character or intersection of
+characters.  This is currently the only way to search for logs involving
+multiple characters.
+
+=head1 OPTIONS
+
+=over 4
+
+=item --help|-h
+
+Print usage and exit.
+
+=item --manual|--man
+
+Print this perldoc and exit.
+
+=item --intro_before <YYYY-MM-DD>
+
+Show characters who first appeared after the given date.
+
+=item --intro_after <YYYY-MM-DD>
+
+Show characters who first appeared after the given date.
+
+=item --lastseen <YYYY-MM-DD>
+
+Show characters who have not been seen since the given date.
+
+=item --minimumlogs <N>
+
+Show characters who have appeared in at least the given number of logs.
+
+=item --player <name>
+
+Show characters owned by the given player.
+
+=back
+
+=head1 TODO
+
+There's currently no way to choose multiple characters except at the command
+line.  The list box could be changed into a multi-select, but with its length
+that seems like it would be hard to manage seeing who's currently selected.
+Investigate multiple window parts, one for the list, one to show current
+selections, and one to submit the current selections?
+
+Should non-base channel logs of the same tag be pulled together into a heading
+that drills down one more level to get to actual logs?
+
+Make a good way to display what characters are in the current log.
+
+Since we aren't using channel starting offsets, we can get log data that we
+don't want when a channel is used more than once in a day.  Perhaps look up
+the offset file to improve that?
+
+Have a way to look at multiple storable files, so that we can have people use
+their personal logs as well.
+
+=head1 SEE ALSO
+
+plex-search
+plex-tokenize
+
+=head1 AUTHOR
+
+Jon Robertson <jonrober@eyrie.org>
+
+=cut
