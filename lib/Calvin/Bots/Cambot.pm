@@ -490,19 +490,19 @@ sub session_list_cmd {
     my ($manager, $client, $user, $match_type, $args) = @_;
 
     # Load options from our arguments.
-    my (@search_players, $starttime);
+    my (@search_players, $days);
     if ($args->{players}) {
-	@search_players = @{$args->{players}};
+        @search_players = @{$args->{players}};
     }
-    if ($args->{starttime}) {
-	$starttime = $args->{starttime};
+    if ($args->{days}) {
+	    $days = $args->{days};
     }
 
     # If we had a recall password set, pop off the last value and see if
     #  it matches our password.  Complain and leave if the user neglected
     #  to give us a password or gave us the wrong password.
     if ($self->recall_passwd ne '') {
-	my $passwd = pop(@search_players);
+        my $passwd = pop(@search_players);
         if (!defined $passwd) {
             $client->msg ($user, "Error: Password required.");
             return 0;
@@ -518,35 +518,37 @@ sub session_list_cmd {
     my @session_keys = sort { $a cmp $b } keys %session;
     my @lines;
     foreach my $name (@session_keys) {
-	my ($log, $players, $line);
-	$log = $session{$name};
+        my ($log, $players, $line);
+        $log = $session{$name};
 
-	# Use the match type to decide if we need to skip the current record.
-	if ($match_type eq 'exact') {
-	    next unless @search_players;
-	    next unless $log->{players};
-	    next unless $self->player_exact_search($log->{players},
-	                                           \@search_players);
-	} elsif ($match_type eq 'fuzzy') {
-	    next unless @search_players;
-	    next unless $log->{players};
-	    next unless $self->search_arry($log->{players}, @search_players);
-	} elsif ($match_type eq 'noplayer') {
-	    next if $log->{players};
-	} elsif ($match_type eq 'old') {
-	    my $starttime = time - 60 * 60 * 24 * $days;
-	    next if $log->{time} > $starttime;
-	}
+        # Use the match type to decide if we need to skip the current record.
+        if ($match_type eq 'all') {
+            # Do nothing, we want to see all.
+        } elsif ($match_type eq 'exact') {
+            next unless @search_players;
+            next unless $log->{players};
+            next unless $self->player_exact_search($log->{players},
+                                                   \@search_players);
+        } elsif ($match_type eq 'fuzzy') {
+            next unless @search_players;
+            next unless $log->{players};
+            next unless $self->search_array($log->{players}, @search_players);
+        } elsif ($match_type eq 'noplayers') {
+            next if $log->{players};
+        } elsif ($match_type eq 'old') {
+            my $starttime = time - 60 * 60 * 24 * $days;
+            next if $log->{time} > $starttime;
+        }
 
-	# Make the players, or a no player string.
-	if ($log->{players}) {
-	    $players = join (', ', @{$log->{players}});
-	} else {
-	    $players = 'No players';
-	}
+        # Make the players, or a no player string.
+        if ($log->{players}) {
+            $players = join (', ', @{$log->{players}});
+        } else {
+            $players = 'No players';
+        }
 
-	# Annnd print.
-	$line = sprintf("%s: (%s) (Ch: %s) %s", $name, $players,
+        # Annnd print.
+        $line = sprintf("%s: (%s) (Ch: %s) %s", $name, $players,
                         $log->{channel}, $log->{tag});
         push(@lines, $line);
     }
@@ -1747,22 +1749,27 @@ sub handle_line {
             return 1;
         }
         elsif (($command eq 'session-list')) {
-	    my %args = (players => \@args);
-	    $self->session_list_cmd ($manager, $client, $result{'name'}, 'exact', \%args);
+            my %args = (players => \@args);
+            $self->session_list_cmd ($manager, $client, $result{'name'}, 'all', \%args);
+            return 1;
+        }
+        elsif (($command eq 'session-list-exact')) {
+            my %args = (players => \@args);
+            $self->session_list_cmd ($manager, $client, $result{'name'}, 'exact', \%args);
             return 1;
         }
         elsif (($command eq 'session-list-old')) {
-	    my %args = (starttime => $args[0]);
-	    $self->session_list_cmd ($manager, $client, $result{'name'}, 'old', \%args);
+            my %args = (days => $args[0]);
+            $self->session_list_cmd ($manager, $client, $result{'name'}, 'old', \%args);
             return 1;
         }
         elsif (($command eq 'session-list-noplayers')) {
-	    my %args = ();
-	    $self->session_list_cmd ($manager, $client, $result{'name'}, 'noplayers', \%args);
+            my %args = (players => \@args);
+            $self->session_list_cmd ($manager, $client, $result{'name'}, 'noplayers', \%args);
             return 1;
         }
         elsif (($command eq 'session-list-fuzzy')) {
-	    my %args = (players => \@args);
+            my %args = (players => \@args);
             $self->session_list_cmd ($manager, $client, $result{'name'}, 'fuzzy', \%args);
             return 1;
         }
