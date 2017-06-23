@@ -9,8 +9,6 @@ use autodie;
 use strict;
 use warnings;
 
-use lib '/home/jonrober/perl-stuff/';
-
 use Calvin::Logs::Characters;
 use Calvin::Logs::Characters::Tag;
 

@@ -9,8 +9,6 @@ use autodie;
 use strict;
 use warnings;
 
-use lib '/home/jonrober/perl-stuff/';
-
 use Data::Dumper;
 use Getopt::Long::Descriptive;
 use IO::Handle;

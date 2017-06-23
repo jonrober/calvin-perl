@@ -9,8 +9,6 @@
 
 require 5.002;
 
-use lib '/home/jonrober/perl-stuff';
-
 use Calvin::Client;
 use Calvin::Manager;
 use Calvin::Parse qw (:constants);

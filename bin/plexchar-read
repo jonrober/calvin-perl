@@ -5,7 +5,6 @@ use autodie;
 use strict;
 use warnings;
 
-use lib '/home/jonrober/perl-stuff/';
 use vars qw();
 
 use Curses;
