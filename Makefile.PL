@@ -31,5 +31,14 @@ WriteMakefile(
         'lib/Calvin/Logs.pm'                => '$(INST_LIBDIR)/Calvin/Logs.pm',
         'lib/Calvin/Manager.pm'             => '$(INST_LIBDIR)/Calvin/Manager.pm',
         'lib/Calvin/Parse.pm'               => '$(INST_LIBDIR)/Calvin/Parse.pm',
+        'bin/loggrep'                       => '$(INST_BIN)/loggrep',
+        'bin/logread'                       => '$(INST_BIN)/logread',
+        'bin/plexchar-load'                 => '$(INST_BIN)/plexchar-load',
+        'bin/plexchar-read'                 => '$(INST_BIN)/plexchar-read',
+        'bin/plexchar-search'               => '$(INST_BIN)/plexchar-search',
+        'bin/uberbot'                       => '$(INST_BIN)/uberbot',
+        'scripts/dailyplex'                 => '$(INST_BIN)/loggrep',
+        'scripts/logclean'                  => '$(INST_BIN)/logclean',
+        'scripts/magicbot'                  => '$(INST_BIN)/magicbot',
     }
 );
