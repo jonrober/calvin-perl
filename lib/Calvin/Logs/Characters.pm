@@ -26,7 +26,7 @@ use strict;
 use vars qw();
 
 # Directories for our data files.
-my $DATA_DIR   = '/srv/calvin/logs/chardata/';
+my $DATA_DIR   = '/srv/calvin/chardata/';
 my $CHAR_DATA  = '/srv/calvin/logs/complex/characters.store';
 
 our $STARTDATE = 0;
