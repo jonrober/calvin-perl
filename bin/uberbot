@@ -84,7 +84,7 @@ sub add_connect {
             @{$help{$client}{$key}} = @{$temphelp{$key}};
         }
 
-        if (@{$commands{$client}}) {
+        if (exists $commands{$client} && @{$commands{$client}}) {
             @{$commands{$client}} = join (' ', @{$commands{$client}}, @tempcommands);
         } else {
             @{$commands{$client}} = @tempcommands;
