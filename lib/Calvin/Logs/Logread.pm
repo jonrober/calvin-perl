@@ -10,8 +10,6 @@
 
 package Calvin::Logs::Logread;
 
-use Logread qw(%prefs);
-
 use Config::Simple;
 use Curses;
 use Curses::UI;
