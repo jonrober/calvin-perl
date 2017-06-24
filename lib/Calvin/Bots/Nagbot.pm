@@ -31,7 +31,6 @@ use strict;
 #  though.
 use vars qw(%stat %nags);
 
-
 ############################################################################
 # Operations on the message file.
 ############################################################################
@@ -86,8 +85,8 @@ sub return_command {
 sub all_commands {
     my $self = shift;
     my ($user) = @_;
-    if (defined @{$nags{$user}}) { return @{$nags{$user}} }
-    else                         { return undef           }
+    if (@{$nags{$user}}) { return @{$nags{$user}} }
+    else                 { return undef           }
 }
 
 
