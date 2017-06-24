@@ -37,7 +37,7 @@ WriteMakefile(
         'bin/plexchar-read'                 => '$(INST_BIN)/plexchar-read',
         'bin/plexchar-search'               => '$(INST_BIN)/plexchar-search',
         'bin/uberbot'                       => '$(INST_BIN)/uberbot',
-        'scripts/dailyplex'                 => '$(INST_BIN)/loggrep',
+        'scripts/dailyplex'                 => '$(INST_BIN)/dailyplex',
         'scripts/logclean'                  => '$(INST_BIN)/logclean',
         'scripts/magicbot'                  => '$(INST_BIN)/magicbot',
     }
