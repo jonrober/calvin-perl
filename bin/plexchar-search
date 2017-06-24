@@ -39,14 +39,6 @@ our @OPTIONS = (
 our $STARTDATE = 0;
 our $ENDDATE = 0;
 
-# Directories for our wiki directory.
-my $ROOT_DIR = '/home/jonrober/plexwiki/';
-my $CHAR_DIR = $ROOT_DIR . 'characters/';
-my $DATA_DIR = $ROOT_DIR . 'data/';
-
-# Our data files for all character log info and character tags.
-my $CHAR_DATA  = $DATA_DIR . 'characters.store';
-
 #############################################################################
 # Command handlers
 #############################################################################

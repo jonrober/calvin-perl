@@ -26,10 +26,8 @@ use strict;
 use vars qw();
 
 # Directories for our data files.
-my $ROOT_DIR   = '/home/jonrober/plexwiki/';
-my $CHAR_DIR   = $ROOT_DIR . 'characters/';
-my $DATA_DIR   = $ROOT_DIR . 'data/';
-my $CHAR_DATA  = $DATA_DIR . 'characters.store';
+my $DATA_DIR   = '/srv/calvin/logs/chardata/';
+my $CHAR_DATA  = '/srv/calvin/logs/complex/characters.store';
 
 our $STARTDATE = 0;
 our $ENDDATE = 0;

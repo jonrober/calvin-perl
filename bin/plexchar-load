@@ -19,13 +19,14 @@ use Time::Piece;
 use Time::Seconds;
 
 use Calvin::Parse;
-use Logfunctions qw(to_numeric);
+use Calvin::Logs::Misc qw(to_numeric);
 
 # Our option descriptions, for both defining options and their usage.
 our @OPTIONS = (
     ['help|h',     'print usage (this text) and exit'],
     ['manual|man', 'print perldoc and exit'],
     ['debug',      'print out extra debugging information'],
+    ['datadir=s',  'use a different character data directory'],
     ['charfile=s', 'write to a different character storable file'],
 );
 
@@ -36,9 +37,8 @@ my $DEFNUM = 99;
 my $MIN_HITS = 5;
 
 # Directories for our data files.
-our $ROOT_DIR = '/home/jonrober/plexwiki/';
-our $DATA_DIR = $ROOT_DIR . 'data/';
-our $CHAR_DATA = $DATA_DIR . 'characters.store';
+my $DATA_DIR   = '/srv/calvin/logs/chardata/';
+my $CHAR_DATA  = '/srv/calvin/logs/complex/characters.store';
 
 #############################################################################
 # File routines
@@ -395,6 +395,9 @@ if ($options->manual) {
 # logs.
 if ($options->charfile) {
     $CHAR_DATA = $options->charfile;
+}
+if ($options->datadir) {
+    $DATA_DIR = $options->datadir;
 }
 
 # Get data from files.
