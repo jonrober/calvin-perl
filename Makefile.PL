@@ -21,7 +21,7 @@ WriteMakefile(
         'lib/Calvin/Bots/Standard.pm'       => '$(INST_LIBDIR)/Calvin/Bots/Standard.pm',
         'lib/Calvin/Bots/URL_Store.pm'      => '$(INST_LIBDIR)/Calvin/Bots/URL_Store.pm',
         'lib/Calvin/Bots/Passthrough.pm'    => '$(INST_LIBDIR)/Calvin/Bots/Passthrough.pm',
-        'lib/Calvin/Logs/Characters.pm'     => '$(INST_LIBDIR)/Logs/Characters.pm',
+        'lib/Calvin/Logs/Characters.pm'     => '$(INST_LIBDIR)/Calvin/Logs/Characters.pm',
         'lib/Calvin/Logs/Characters/Tag.pm' => '$(INST_LIBDIR)/Calvin/Logs/Characters/Tag.pm',
         'lib/Calvin/Logs/Logread.pm'        => '$(INST_LIBDIR)/Calvin/Logs/Logread.pm',
         'lib/Calvin/Logs/Misc.pm'           => '$(INST_LIBDIR)/Calvin/Logs/Misc.pm',
