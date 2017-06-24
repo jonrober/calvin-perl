@@ -85,8 +85,8 @@ sub return_command {
 sub all_commands {
     my $self = shift;
     my ($user) = @_;
-    if (@{$nags{$user}}) { return @{$nags{$user}} }
-    else                 { return undef           }
+    if (exists $nags{$user} && @{$nags{$user}}) { return @{$nags{$user}} }
+    else                                        { return undef           }
 }
 
 
