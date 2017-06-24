@@ -1,4 +1,7 @@
 blib/
+debian/debhelper-build-stamp
+debian/files
+debian/libcalvin-perl*
 Calvin*.gz
 Makefile
 MYMETA.*
