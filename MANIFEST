@@ -1,3 +1,4 @@
+.gitignore
 bin/loggrep
 bin/logread
 bin/plexchar-load
@@ -16,7 +17,6 @@ lib/Calvin/Bots/Cambot.pm
 lib/Calvin/Bots/Descbot.pm
 lib/Calvin/Bots/Fengroll.pm
 lib/Calvin/Bots/INroll.pm
-lib/Calvin/Bots/MTG.pm
 lib/Calvin/Bots/Nagbot.pm
 lib/Calvin/Bots/Passthrough.pm
 lib/Calvin/Bots/Standard.pm
@@ -32,7 +32,8 @@ lib/Calvin/Logs/Split.pm
 lib/Calvin/Manager.pm
 lib/Calvin/Parse.pm
 Makefile.PL
-MANIFEST
+MANIFEST			This list of files
+MANIFEST.SKIP
 scripts/dailyplex
 scripts/logclean
 scripts/magicbot
