@@ -1,7 +1,7 @@
 Source: libcalvin-perl
 Section: perl
 Priority: extra
-Build-Depends: debhelper (>= 7)
+Build-Depends: debhelper (>= 11)
 Build-Depends-Indep: perl
 Maintainer: Jon Robertson <jonrober@eyrie.org>
 Standards-Version: 3.9.4
@@ -10,7 +10,7 @@ Vcs-Browser: http://git.eyrie.org/?p=calvin/net-calvin.git
 
 Package: libcalvin-perl
 Architecture: all
-Depends: ${perl:Depends}
+Depends: ${misc:Depends}, ${perl:Depends}
 Description: Calvin chatserver libraries and commands for Perl
  libcalvin-perl contains Perl libraries for the Calvin chatserver, along with
  multiple programs designed to create and analyze user logs created by the

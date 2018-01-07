@@ -6,5 +6,7 @@ libcalvin-perl (1.00-1) unstable; urgency=low
   [ Russ Allbery ]
   * Switch to the DEP-14 branch layout and add debian/gbp.conf to
     configure git-buildpackage to use it automatically.
+  * Update debhelper compatibility mode to V11.
+    - Add ${misc:Depends} to dependencies.
 
  -- Jon Robertson <jonrober@eyrie.org>  Tue, 20 Jun 2017 20:50:37 -0700
