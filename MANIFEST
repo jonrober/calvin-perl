@@ -37,3 +37,5 @@ MANIFEST.SKIP
 scripts/dailyplex
 scripts/logclean
 scripts/magicbot
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)
