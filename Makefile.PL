@@ -1,6 +1,6 @@
 use ExtUtils::MakeMaker;
 
-$VERSION = '1.0.0';
+$VERSION = '1.00';
 
 WriteMakefile(
     NAME         => 'Calvin',
@@ -16,7 +16,6 @@ WriteMakefile(
         'lib/Calvin/Bots/Descbot.pm'        => '$(INST_LIBDIR)/Calvin/Bots/Descbot.pm',
         'lib/Calvin/Bots/Fengroll.pm'       => '$(INST_LIBDIR)/Calvin/Bots/Fengroll.pm',
         'lib/Calvin/Bots/INroll.pm'         => '$(INST_LIBDIR)/Calvin/Bots/INroll.pm',
-        'lib/Calvin/Bots/MTG.pm'            => '$(INST_LIBDIR)/Calvin/Bots/MTG.pm',
         'lib/Calvin/Bots/Nagbot.pm'         => '$(INST_LIBDIR)/Calvin/Bots/Nagbot.pm',
         'lib/Calvin/Bots/Standard.pm'       => '$(INST_LIBDIR)/Calvin/Bots/Standard.pm',
         'lib/Calvin/Bots/URL_Store.pm'      => '$(INST_LIBDIR)/Calvin/Bots/URL_Store.pm',

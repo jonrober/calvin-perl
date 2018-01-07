@@ -498,6 +498,8 @@ sub session_list_cmd {
 	    $days = $args->{days};
     }
 
+    $client->msg ($user, "Players: @search_players");
+
     # If we had a recall password set, pop off the last value and see if
     #  it matches our password.  Complain and leave if the user neglected
     #  to give us a password or gave us the wrong password.
@@ -1759,11 +1761,13 @@ sub handle_line {
             return 1;
         }
         elsif (($command eq 'session-list-old')) {
-            my %args = (days => $args[0]);
+            my %args = (days    => shift(@args),
+                        players => \@args);
             $self->session_list_cmd ($manager, $client, $result{'name'}, 'old', \%args);
             return 1;
         }
         elsif (($command eq 'session-list-noplayers')) {
+            # Include the players because that's where we expect the passwd.
             my %args = (players => \@args);
             $self->session_list_cmd ($manager, $client, $result{'name'}, 'noplayers', \%args);
             return 1;

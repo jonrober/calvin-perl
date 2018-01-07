@@ -1,0 +1,8 @@
+                     User-Visible Net::Calvin Changes
+
+Net::Calvin 1.00 (2018-01-07)
+
+    First semi-public release of various Perl modules for logging and log
+    searching for Calvin chatservers.  This uses the Calvin distribution
+    name because all the modules are still rooted in Calvin, but this
+    should change to Net::Calvin in a later release.

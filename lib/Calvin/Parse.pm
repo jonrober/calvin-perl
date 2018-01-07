@@ -1,7 +1,7 @@
 # Calvin::Parse -- Parse output from Calvin-style chatservers.  -*- perl -*-
 # $Id$
 #
-# Copyright 1996, 1997 by Russ Allbery <rra@stanford.edu>
+# Copyright 1996, 1997 by Russ Allbery <rra@cpan.org>
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the same terms as Perl itself.
