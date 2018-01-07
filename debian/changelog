@@ -1,5 +1,10 @@
 libcalvin-perl (1.0-1) unstable; urgency=low
 
+  [ Jon Robertson ]
   * First debian build of Calvin libraries.
+
+  [ Russ Allbery ]
+  * Switch to the DEP-14 branch layout and add debian/gbp.conf to
+    configure git-buildpackage to use it automatically.
 
  -- Jon Robertson <jonrober@eyrie.org>  Tue, 20 Jun 2017 20:50:37 -0700
