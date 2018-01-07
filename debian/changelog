@@ -1,4 +1,4 @@
-libcalvin-perl (1.0-1) unstable; urgency=low
+libcalvin-perl (1.00-1) unstable; urgency=low
 
   [ Jon Robertson ]
   * First debian build of Calvin libraries.
