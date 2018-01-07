@@ -1,8 +1,7 @@
 Source: libcalvin-perl
 Section: perl
 Priority: extra
-Build-Depends: debhelper (>= 11)
-Build-Depends-Indep: perl
+Build-Depends: debhelper (>= 11), perl
 Maintainer: Jon Robertson <jonrober@eyrie.org>
 Uploaders: Russ Allbery <rra@debian.org>
 Standards-Version: 3.9.4

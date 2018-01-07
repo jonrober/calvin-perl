@@ -9,5 +9,7 @@ libcalvin-perl (1.00-1) unstable; urgency=low
     configure git-buildpackage to use it automatically.
   * Update debhelper compatibility mode to V11.
     - Add ${misc:Depends} to dependencies.
+  * Move perl to Build-Depends, since Build-Depends-Indep isn't meaningful
+    for a source package that only builds arch-all binary packages.
 
  -- Jon Robertson <jonrober@eyrie.org>  Tue, 20 Jun 2017 20:50:37 -0700
