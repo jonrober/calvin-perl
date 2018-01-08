@@ -17,6 +17,8 @@ Depends:
  ${misc:Depends},
  ${perl:Depends},
  libconfig-simple-perl,
+ libdate-calc-perl,
+ libfile-homedir-perl,
 Description: Calvin chatserver libraries and commands for Perl
  libcalvin-perl contains Perl libraries for the Calvin chatserver, along with
  multiple programs designed to create and analyze user logs created by the

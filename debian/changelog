@@ -1,6 +1,10 @@
 libcalvin-perl (1.00-2) UNRELEASED; urgency=medium
 
+  [ Jon Robertson ]
   * Fix missing dependency for libconfig-simple-perl.
+
+  [ Russ Allbery ]
+  * Add missing libdate-calc-perl and libfile-homedir-perl dependencies.
 
  -- Jon Robertson <jonrober@eyrie.org>  Sun, 07 Jan 2018 18:19:53 -0800
 
