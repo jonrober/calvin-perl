@@ -1,15 +1,15 @@
 Source: libcalvin-perl
 Section: perl
-Priority: extra
+Priority: optional
 Build-Depends:
  debhelper (>= 11),
  perl,
 Maintainer: Jon Robertson <jonrober@eyrie.org>
 Uploaders:
  Russ Allbery <rra@debian.org>,
-Standards-Version: 3.9.4
-Vcs-Git: git://git.eyrie.org/calvin/net-calvin.git
-Vcs-Browser: http://git.eyrie.org/?p=calvin/net-calvin.git
+Standards-Version: 4.1.3
+Vcs-Git: https://git.eyrie.org/git/calvin/net-calvin.git
+Vcs-Browser: https://git.eyrie.org/?p=calvin/net-calvin.git
 
 Package: libcalvin-perl
 Architecture: all
