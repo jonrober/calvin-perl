@@ -5,6 +5,7 @@ libcalvin-perl (1.00-1) unstable; urgency=low
 
   [ Russ Allbery ]
   * Add myself to Uploaders.
+  * Rewrite debian/copyright to apply to this package.
   * Switch to the DEP-14 branch layout and add debian/gbp.conf to
     configure git-buildpackage to use it automatically.
   * Update debhelper compatibility mode to V11.
