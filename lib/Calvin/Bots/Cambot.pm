@@ -21,6 +21,7 @@ use Calvin::Manager;
 use Calvin::Parse qw (:constants);
 
 use Date::Parse;
+use Getopt::Long qw(GetOptionsFromString);
 use IO::File;
 use POSIX qw(strftime);
 use Storable;
@@ -30,6 +31,47 @@ use Storable;
 #use Crypt;
 
 use strict;
+
+############################################################################
+# Session list handling commands.
+############################################################################
+
+# Because there are so many options possible to session-list, we throw it
+# through Getopt::Long for parsing.
+sub parse_session_list {
+    my $self = shift;
+    my ($client, $user, $request) = @_;
+
+    # Set our options and defaults.
+    my @options = ('players=s', 'older-than=s', 'password=s', 'fuzzy', 'exact',
+                   'noplayers', 'pending', 'active', 'all');
+    my %args = ('players'    => '',
+                'password'   => undef,
+                'older-than' => 0,
+                'fuzzy'      => 0,
+                'noplayers'  => 0,
+                'pending'    => 0,
+                'active'     => 0,
+                'all'        => 0,
+    );
+
+    # Parse the arguments.  Anything not an option should be thrown away
+    # normally, but if we didn't succeed it can be used for error message.
+    my ($success, $remaining_args) = GetOptionsFromString($request, \%args,
+                                                          @options);
+    if (! $success) {
+        my $error = "Problem parsing list request at '" .
+                    join (' ', @{$remaining_args}) . "'";
+        $client->msg ($user, $error);
+        return undef;
+    }
+
+    # Now do a little jiggering of the values for mutually exclusive defaults.
+    $args{active} = 1 if $args{pending} == 0;
+    $args{'older_than'} = $args{'older-than'};
+
+    return %args;
+}
 
 ############################################################################
 # Logfile commands.
@@ -487,33 +529,27 @@ sub session_rename_cmd {
 # Given the command to list all session data, print it out to the requester.
 sub session_list_cmd {
     my $self = shift;
-    my ($manager, $client, $user, $match_type, $args) = @_;
+    my ($manager, $client, $user, @request) = @_;
 
-    # Load options from our arguments.
-    my (@search_players, $days);
-    if ($args->{players}) {
-        @search_players = @{$args->{players}};
-    }
-    if ($args->{days}) {
-	    $days = $args->{days};
-    }
+    # Parse out arguments for our request.
+    my $request = join (' ', @request);
+    my %args = $self->parse_session_list($client, $user, $request);
+    return unless %args;
 
     # If we had a recall password set, pop off the last value and see if
     #  it matches our password.  Complain and leave if the user neglected
     #  to give us a password or gave us the wrong password.
     if ($self->recall_passwd ne '') {
-        my $passwd = pop(@search_players);
-        if (!defined $passwd) {
+        if (!defined $args{password}) {
             $client->msg ($user, "Error: Password required.");
             return 0;
-        } elsif (crypt($passwd, 'jr') ne $self->recall_passwd) {
+        } elsif (crypt($args{password}, 'jr') ne $self->recall_passwd) {
             $client->msg ($user, "Error: Bad password.");
             return 0;
         }
     }
 
-    $client->msg ($user, "Players: @search_players");
-    $client->msg ($user, "Search type: $match_type");
+    my @search_players = split(',', $args{players});
 
     # Grab all sessions, sort them by the session name, and then iterate
     #  through each.
@@ -524,32 +560,34 @@ sub session_list_cmd {
         my ($log, $players, $line);
         $log = $session{$name};
 
-        # Use the match type to decide if we need to skip the current record.
-        if ($match_type eq 'all') {
-            # Do nothing, we want to see all.
+        # First our all/active/pending check.  If nothing is set then we
+        # assume we want to see active lines only.  If all is set, then we
+        # don't care about these checks at all.
+        if ($args{all} == 0) {
+            next if $args{pending} && defined $log->{lines};
+            next if $args{active}  && ! defined $log->{lines};;
+        }
 
-        } elsif ($match_type eq 'exact') {
-            next unless @search_players;
+        # Request for logs with no players.
+        next if $args{noplayers} && $log->{players};
+
+        # Search for given players.  We assume an exact search unless fuzzy is
+        # explicitly requested.
+        if (@search_players) {
             next unless $log->{players};
-            next unless $self->player_exact_search($log->{players},
-                                                   \@search_players);
 
-        } elsif ($match_type eq 'fuzzy') {
-            next unless @search_players;
-            next unless $log->{players};
-            next unless $self->search_array($log->{players}, @search_players);
+            if ($args{fuzzy}) {
+                next unless $self->search_array($log->{players},
+                                                @search_players);
+            } else {
+                next unless $self->player_exact_search($log->{players},
+                                                       \@search_players);
+            }
+        }
 
-        } elsif ($match_type eq 'noplayers') {
-            next if $log->{players};
-
-        } elsif ($match_type eq 'pending') {
-            next if defined $log->{lines};
-
-        } elsif ($match_type eq 'active') {
-            next unless defined $log->{lines};
-
-        } elsif ($match_type eq 'old') {
-            my $starttime = time - 60 * 60 * 24 * $days;
+        # Sessions not used within a certain number of days.
+        if ($args{older_than}) {
+            my $starttime = time - 60 * 60 * 24 * $args{older_than};
             next if $log->{time} > $starttime;
         }
 
@@ -1639,20 +1677,12 @@ sub return_help {
                            'Renames an existing session from <source> to <dest>',
                           ],
              'session-list' => [
-                           'Syntax: session-list [player] [player]',
-                           'Shows a list of sessions defined -- either all or those that have a specific player',
-                          ],
-             'session-list-old' => [
-                           'Syntax: session-list-old <days>',
-                           'Shows a list of sessions defined and unused for the past set number of days',
-                          ],
-             'session-list-noplayers' => [
-                           'Syntax: session-list-noplayers',
-                           'Shows a list of sessions defined without any players',
-                          ],
-             'session-list-fuzzy' => [
-                           'Syntax: session-list-fuzzy [player] [player]',
-                           'Shows a list of sessions defined -- either all or those including certain players',
+                           'Syntax: session-list [--player <player,player,player>] [--older-than <days>]',
+                           '                     [--fuzzy] [--all] [--noplayers] [--pending] [--active]',
+                           'Shows a list of sessions defined, with many options.  You can display',
+                           'a list of players (fuzzy lets you see those players plus any others),',
+                           'those still pending a scene, those without assigned players, and those',
+                           'older than a set number of days.',
                           ],
              'session-players' => [
                            'Syntax: session-players <session> [player] ... [player]',
@@ -1677,11 +1707,6 @@ sub return_commands {
                       'session-create',
                       'session-remove',
                       'session-list',
-                      'session-list-old',
-                      'session-list-fuzzy',
-                      'session-list-noplayers',
-                      'session-list-active',
-                      'session-list-pending',
                       'session-rename',
                      );
     return @commands;
@@ -1762,40 +1787,7 @@ sub handle_line {
             return 1;
         }
         elsif (($command eq 'session-list')) {
-            my %args = (players => \@args);
-            $self->session_list_cmd ($manager, $client, $result{'name'}, 'all', \%args);
-            return 1;
-        }
-        elsif (($command eq 'session-list-exact')) {
-            my %args = (players => \@args);
-            $self->session_list_cmd ($manager, $client, $result{'name'}, 'exact', \%args);
-            return 1;
-        }
-        elsif (($command eq 'session-list-pending')) {
-            my %args = (players => \@args);
-            $self->session_list_cmd ($manager, $client, $result{'name'}, 'pending', \%args);
-            return 1;
-        }
-        elsif (($command eq 'session-list-active')) {
-            my %args = (players => \@args);
-            $self->session_list_cmd ($manager, $client, $result{'name'}, 'active', \%args);
-            return 1;
-        }
-        elsif (($command eq 'session-list-old')) {
-            my %args = (days    => shift(@args),
-                        players => \@args);
-            $self->session_list_cmd ($manager, $client, $result{'name'}, 'old', \%args);
-            return 1;
-        }
-        elsif (($command eq 'session-list-noplayers')) {
-            # Include the players because that's where we expect the passwd.
-            my %args = (players => \@args);
-            $self->session_list_cmd ($manager, $client, $result{'name'}, 'noplayers', \%args);
-            return 1;
-        }
-        elsif (($command eq 'session-list-fuzzy')) {
-            my %args = (players => \@args);
-            $self->session_list_cmd ($manager, $client, $result{'name'}, 'fuzzy', \%args);
+            $self->session_list_cmd ($manager, $client, $result{'name'}, @args);
             return 1;
         }
         elsif (($command eq 'session-players')) {
