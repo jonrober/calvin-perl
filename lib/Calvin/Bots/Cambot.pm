@@ -19,8 +19,10 @@ require 5.002;
 use Calvin::Client;
 use Calvin::Manager;
 use Calvin::Parse qw (:constants);
+
 use Date::Parse;
 use IO::File;
+use POSIX qw(strftime);
 use Storable;
 
 # Comment out for systems compiled without support for crypt(), if you
@@ -496,8 +498,6 @@ sub session_list_cmd {
 	    $days = $args->{days};
     }
 
-    $client->msg ($user, "Players: @search_players");
-
     # If we had a recall password set, pop off the last value and see if
     #  it matches our password.  Complain and leave if the user neglected
     #  to give us a password or gave us the wrong password.
@@ -511,6 +511,9 @@ sub session_list_cmd {
             return 0;
         }
     }
+
+    $client->msg ($user, "Players: @search_players");
+    $client->msg ($user, "Search type: $match_type");
 
     # Grab all sessions, sort them by the session name, and then iterate
     #  through each.
@@ -539,6 +542,12 @@ sub session_list_cmd {
         } elsif ($match_type eq 'noplayers') {
             next if $log->{players};
 
+        } elsif ($match_type eq 'pending') {
+            next if defined $log->{lines};
+
+        } elsif ($match_type eq 'active') {
+            next unless defined $log->{lines};
+
         } elsif ($match_type eq 'old') {
             my $starttime = time - 60 * 60 * 24 * $days;
             next if $log->{time} > $starttime;
@@ -552,7 +561,8 @@ sub session_list_cmd {
         }
 
         # Annnd print.
-        $line = sprintf("%s: (%s) (Ch: %s) %s", $name, $players,
+        my $date = strftime("%Y-%m-%d", localtime($log->{time}));
+        $line = sprintf("%s: (%s) (%s) (Ch: %s) %s", $name, $players, $date,
                         $log->{channel}, $log->{tag});
         push(@lines, $line);
     }
@@ -1259,13 +1269,13 @@ sub add_session {
         my ($name, $channel, $tag) = @_;
         my $time = time();
         my $rec = {};
-        $rec->{'identifier'} = $time.'-'.$name;
-        $rec->{'tag'}        = $tag;
-        $rec->{'firstjoin'}  = 1;
-        $rec->{'time'}       = $time;
-        $rec->{'channel'}    = $channel;
-        $rec->{'lines'}      = ();
-        $rec->{'players'}    = ();
+        $rec->{identifier} = $time.'-'.$name;
+        $rec->{tag}        = $tag;
+        $rec->{firstjoin}  = 1;
+        $rec->{time}       = $time;
+        $rec->{channel}    = $channel;
+        $rec->{lines}      = undef;
+        $rec->{players}    = ();
 
         ${$self->{SESSIONS}}{$name} = $rec;
     }
@@ -1668,8 +1678,10 @@ sub return_commands {
                       'session-remove',
                       'session-list',
                       'session-list-old',
-                      'session-list-noplayers',
                       'session-list-fuzzy',
+                      'session-list-noplayers',
+                      'session-list-active',
+                      'session-list-pending',
                       'session-rename',
                      );
     return @commands;
@@ -1757,6 +1769,16 @@ sub handle_line {
         elsif (($command eq 'session-list-exact')) {
             my %args = (players => \@args);
             $self->session_list_cmd ($manager, $client, $result{'name'}, 'exact', \%args);
+            return 1;
+        }
+        elsif (($command eq 'session-list-pending')) {
+            my %args = (players => \@args);
+            $self->session_list_cmd ($manager, $client, $result{'name'}, 'pending', \%args);
+            return 1;
+        }
+        elsif (($command eq 'session-list-active')) {
+            my %args = (players => \@args);
+            $self->session_list_cmd ($manager, $client, $result{'name'}, 'active', \%args);
             return 1;
         }
         elsif (($command eq 'session-list-old')) {
