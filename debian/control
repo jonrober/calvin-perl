@@ -19,6 +19,7 @@ Depends:
  libconfig-simple-perl,
  libdate-calc-perl,
  libfile-homedir-perl,
+ libgetopt-long-perl,
  libhash-merge-perl,
 Description: Calvin chatserver libraries and commands for Perl
  libcalvin-perl contains Perl libraries for the Calvin chatserver, along with
