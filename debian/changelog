@@ -1,4 +1,4 @@
-libcalvin-perl (1.00-2) UNRELEASED; urgency=medium
+libcalvin-perl (1.01-1) UNRELEASED; urgency=medium
 
   [ Jon Robertson ]
   * Add missing libconfig-simple-perl, libhash-merge-perl, libcurses-perl,
@@ -6,6 +6,11 @@ libcalvin-perl (1.00-2) UNRELEASED; urgency=medium
     libperl6-slurp-perl dependencies.
 
   [ Russ Allbery ]
+  * New upstream release.
+    - Unify Cambot session-list commands into one command with options
+      parsed with Getopt::Long.
+    - Add new Cambot session-list commands for searching pending sessions.
+    - Adjust uberbot error log file location.
   * Add missing libdate-calc-perl and libfile-homedir-perl dependencies.
 
  -- Jon Robertson <jonrober@eyrie.org>  Sun, 07 Jan 2018 18:19:53 -0800
