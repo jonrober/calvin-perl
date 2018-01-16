@@ -38,6 +38,5 @@ WriteMakefile(
         'bin/uberbot'                       => '$(INST_BIN)/uberbot',
         'scripts/dailyplex'                 => '$(INST_BIN)/dailyplex',
         'scripts/logclean'                  => '$(INST_BIN)/logclean',
-        'scripts/magicbot'                  => '$(INST_BIN)/magicbot',
     }
 );
