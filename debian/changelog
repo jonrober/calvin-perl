@@ -1,3 +1,10 @@
+libcalvin-perl (1.01-2) unstable; urgency=medium
+
+  * Remove libgetopt-long-perl dependency, since this is part of Perl core
+    and isn't an installable package.
+
+ -- Russ Allbery <rra@debian.org>  Mon, 15 Jan 2018 20:36:31 -0800
+
 libcalvin-perl (1.01-1) unstable; urgency=medium
 
   [ Jon Robertson ]

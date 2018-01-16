@@ -20,7 +20,6 @@ Depends:
  libdate-calc-perl,
  libfile-homedir-perl,
  libgetopt-long-descriptive-perl,
- libgetopt-long-perl,
  libhash-merge-perl,
  libnet-remctl-perl,
  libperl6-slurp-perl,
