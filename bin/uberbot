@@ -19,9 +19,10 @@ use Calvin::Bots::Nagbot;
 use Calvin::Bots::Cambot;
 use Calvin::Bots::Fengroll;
 
+use File::HomeDir;
+
 use strict qw(vars);
-use vars qw(%help %bot_info %botlist %commands %bots @connect $bot $error_file);
-$error_file = '/home/jonrober/bot.errors';
+use vars qw(%help %bot_info %botlist %commands %bots @connect $bot);
 
 local $SIG{PIPE} = 'IGNORE';
 
@@ -105,6 +106,8 @@ sub add_connect {
 ############################################################################
 # Main routine
 ############################################################################
+
+my $error_file = File::HomeDir->my_home . '/bot.errors';
 
 # We actually want to run as a daemon, so fork ourselves, exit the parent,
 # and close the standard file handles.

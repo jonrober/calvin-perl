@@ -1,5 +1,16 @@
                      User-Visible Net::Calvin Changes
 
+Net::Calvin 1.01 (2018-01-15)
+
+    Cambot: Move all session-list-* commands into just session-list with a
+    number of arguments that are parsed by Getopt::Long.
+
+    Cambot: Add new session-list commands for searching based on whether a
+    session has been used for logging or not yet.
+
+    uberbot: Adjust hardcoded location of the error file from a specific user
+    directory to the current user home directory.
+
 Net::Calvin 1.00 (2018-01-07)
 
     First semi-public release of various Perl modules for logging and log

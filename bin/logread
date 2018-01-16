@@ -15,7 +15,7 @@ use autodie;
 use strict;
 use warnings;
 
-use vars qw($date @dirs @basedirs $file $continue);
+use vars qw($DATE @dirs @basedirs $file $continue);
 
 use Curses;
 use Curses::UI;
@@ -78,7 +78,7 @@ for my $dir (@basedirs, @dirs) {
 # properly formatted, erroring if not...
 if (@ARGV) {
     if ($ARGV[0] =~ /^\d{4}-\d{2}-\d{2}$/) {
-        $date = $ARGV[0];
+        $DATE = $ARGV[0];
     } else {
         die "'".$ARGV[0]."' is not a date in form YYYY-MM-DD.\n";
     }
@@ -89,7 +89,7 @@ if (@ARGV) {
 # file name via regular expression.
 } else {
     $file = last_file_subdirs (@dirs);
-    ($date) = ($file =~ m#^.*/(\d{4}-\d{2}-\d{2})-\S+\.log$#);
+    ($DATE) = ($file =~ m#^.*/(\d{4}-\d{2}-\d{2})-\S+\.log$#);
 }
 
 # And now make sure any errors don't mess up our screen.  We'll change this
@@ -227,7 +227,7 @@ $CUI->set_binding( sub{ menu_number(9) }, "9" );
 # At long last, everything is defined.  Create the main menu to start with,
 #  give it focus, and drop into the loop the toolkit provides for handling
 #  the UI.
-make_main_menu($date);
+make_main_menu($DATE);
 $CUI->getobj('mainwindow')->focus;
 $CUI->mainloop();
 
@@ -250,11 +250,12 @@ sub listbox_callback() {
     #  the menu for that date.
 	my $userdata = $listbox->parent->userdata;
     if ($userdata->[$selected]{'date'}) {
-		my $date = $userdata->[$selected]{'date'};
-		if ($date ne 'null') {
-	    	make_main_menu($date, $selected);
+		my $sel_date = $userdata->[$selected]{'date'};
+		if ($sel_date ne 'null') {
+            $DATE = $sel_date;
+	    	make_main_menu($sel_date, $selected);
 
-	    	$label->text("Logs for $date");
+	    	$label->text("Logs for $sel_date");
 			$CUI->getobj('mainwindow')->focus;
 		}
 
@@ -281,9 +282,8 @@ sub listbox_callback() {
 
 		# Rebuild the main menu, both to deselect this selection and in
 		#  order to pick up any new channels begun while we were reading.
-		make_main_menu($date, $selected);
+		make_main_menu($DATE, $selected);
     }
-
 }
 
 # Define everything to appear on the main window.  All the menus of channels
@@ -338,13 +338,13 @@ sub make_main_menu {
     #  item.
     my $navlist = $window->add(
 				  'navlist', 'Listbox',
-				  -y => 2,
-				  -values  => \@channels,
-				  -labels  => \%labels,
-				  -title   => 'Channels',
-				  -vscrollbar => 1,
-				  -onchange   => \&listbox_callback,
-				  -intellidraw  => 1,
+				  -y           => 2,
+				  -values      => \@channels,
+				  -labels      => \%labels,
+				  -title       => 'Channels',
+				  -vscrollbar  => 1,
+				  -onchange    => \&listbox_callback,
+				  -intellidraw => 1,
 				  );
 
     # Now that the list is built, if we were sent a previous selection, slip
@@ -650,12 +650,12 @@ sub prefs_action {
     #  a function just for that.
     } elsif ($action eq 'write_file') {
         write_prefs(%prefs);
-		make_main_menu($date);
+		make_main_menu($DATE);
 
     # If we've selected to leave the preferences file, then back to the main
     #  menu we go!
     } elsif ($action eq 'cancel_prefs') {
-		make_main_menu($date);
+		make_main_menu($DATE);
     }
 
 }
@@ -838,8 +838,8 @@ sub make_prefs_menu {
 #  set to our browsing date, and then if a value is returned by the calendar,
 #  sets our browsing date to *that*.
 sub calendar_view {
-    $date = $CUI->calendardialog(-date => $date);
-    make_main_menu($date) if $date;
+    $DATE = $CUI->calendardialog(-date => $DATE);
+    make_main_menu($DATE) if $DATE;
 }
 
 ########################################################################
