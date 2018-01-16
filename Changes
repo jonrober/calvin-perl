@@ -1,13 +1,6 @@
                      User-Visible Net::Calvin Changes
 
-Net::Calvin 1.00 (2018-01-07)
-
-    First semi-public release of various Perl modules for logging and log
-    searching for Calvin chatservers.  This uses the Calvin distribution
-    name because all the modules are still rooted in Calvin, but this
-    should change to Net::Calvin in a later release.
-
-Net::Calvin 1.01 (2018-01-14)
+Net::Calvin 1.01 (2018-01-15)
 
     Cambot: Move all session-list-* commands into just session-list with a
     number of arguments that are parsed by Getopt::Long.
@@ -17,3 +10,10 @@ Net::Calvin 1.01 (2018-01-14)
 
     uberbot: Adjust hardcoded location of the error file from a specific user
     directory to the current user home directory.
+
+Net::Calvin 1.00 (2018-01-07)
+
+    First semi-public release of various Perl modules for logging and log
+    searching for Calvin chatservers.  This uses the Calvin distribution
+    name because all the modules are still rooted in Calvin, but this
+    should change to Net::Calvin in a later release.
