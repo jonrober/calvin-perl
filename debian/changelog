@@ -1,4 +1,4 @@
-libcalvin-perl (1.01-1) UNRELEASED; urgency=medium
+libcalvin-perl (1.01-1) unstable; urgency=medium
 
   [ Jon Robertson ]
   * Add missing libconfig-simple-perl, libhash-merge-perl, libcurses-perl,
@@ -13,7 +13,7 @@ libcalvin-perl (1.01-1) UNRELEASED; urgency=medium
     - Adjust uberbot error log file location.
   * Add missing libdate-calc-perl and libfile-homedir-perl dependencies.
 
- -- Jon Robertson <jonrober@eyrie.org>  Sun, 07 Jan 2018 18:19:53 -0800
+ -- Russ Allbery <rra@debian.org>  Mon, 15 Jan 2018 20:34:01 -0800
 
 libcalvin-perl (1.00-1) unstable; urgency=low
 
