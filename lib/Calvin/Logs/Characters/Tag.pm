@@ -19,7 +19,7 @@ use File::Copy qw(move);
 use JSON;
 use Perl6::Slurp;
 
-my $ROOT_DIR   = '/home/jonrober/plexwiki/';
+my $ROOT_DIR   = '/srv/calvin/chardata/';
 my $DATA_DIR   = $ROOT_DIR . 'data/';
 my $TAGS_FNAME = $DATA_DIR . 'tags.json';
 my $LOCKFILE   = $DATA_DIR . '.lockfile';
