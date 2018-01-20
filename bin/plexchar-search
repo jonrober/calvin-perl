@@ -312,10 +312,11 @@ my %commands = (
 		},
 );
 
+push (@ARGV, 'help') unless @ARGV;
 my $backend = Net::Remctl::Backend->new(
     {
         commands    => \%commands,
-        command     => 'complex',
+        command     => 'plexchar-search',
         help_banner => 'complex help:',
     }
 );
@@ -332,26 +333,26 @@ __END__
 
 =head1 NAME
 
-plex-search - Perform search operations on a Plex character data file
+plexchar-search - Perform search operations on a Plex character data file
 
 =head1 SYNOPSIS
 
-    plex-search character [search|list|usage|multiples]
+    plexchar-search character [search|list|usage|multiples]
 
 =head1 DESCRIPTION
 
-plex-search is a general script for listing and debugging data saved by
-plex-tokenize to a data file of characters, their players, and the logs they
+plexchar-search is a general script for listing and debugging data saved by
+plexchar-load to a data file of characters, their players, and the logs they
 were in.  It can perform general commands to help show what characters are in
 logs for general use, and drills down information used to track rare or
 conflicting characters so that we can decide if they need to be added to an
-override file for plex-tokenize to massage.
+override file for plexchar-load to massage.
 
 =head1 COMMANDS
 
 =over 4
 
-plex-search character [search|list|usage|multiples]
+plexchar-search character [search|list|usage|multiples]
 
 =item character list
 
@@ -417,8 +418,8 @@ their personal logs as well.
 
 =head1 SEE ALSO
 
-plex-tokenize
-character-ui
+plexchar-load
+plexchar-read
 
 =head1 AUTHOR
 
