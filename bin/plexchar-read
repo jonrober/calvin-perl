@@ -417,15 +417,15 @@ __END__
 
 =head1 NAME
 
-character-ui - Curses::UI based access to characters and their logs
+plexchar-read - Curses::UI based access to characters and their logs
 
 =head1 SYNOPSIS
 
-    character-ui [character1] [character2] [...]
+    plexchar-read [character1] [character2] [...]
 
 =head1 DESCRIPTION
 
-character-ui is a menu interface using Curses::UI, that lists all characters
+plexchar-read is a menu interface using Curses::UI, that lists all characters
 found in calvin logs and lets you view the logs for specific characters.  The
 main purpose is to quickly find drill down to recall context for specific
 scenes and events for a character.
@@ -491,8 +491,8 @@ their personal logs as well.
 
 =head1 SEE ALSO
 
-plex-search
-plex-tokenize
+plexchar-search
+plexchar-read
 
 =head1 AUTHOR
 
