@@ -23,6 +23,7 @@ Depends:
  libhash-merge-perl,
  libnet-remctl-perl,
  libperl6-slurp-perl,
+ libyaml-perl,
  ${misc:Depends},
  ${perl:Depends},
 Description: Calvin chatserver libraries and commands for Perl
