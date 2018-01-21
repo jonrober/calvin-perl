@@ -5,6 +5,7 @@ bin/plexchar-load
 bin/plexchar-read
 bin/plexchar-search
 bin/uberbot
+bin/uberbot-config-upgrade
 Changes
 data/overrides
 data/players
