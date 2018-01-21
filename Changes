@@ -1,5 +1,25 @@
                      User-Visible Net::Calvin Changes
 
+Net::Calvin 1.02 (2018-01-21)
+
+    uberbot: Move to use yaml config files, and rewrite config file handling
+    to no longer use internal strings that we create and reparse.  These only
+    existed to allow creating new bots from existing bots, which we don't
+    actually use, and which complicates the logic for no reason.
+
+    uberbot: Redo STDERR handling to only redirect it to a file if a filename
+    is given as an argument with --error=<fname>.  This will let the main
+    system uberbot send errors to normal system logs.
+
+    uberbot-config-upgrade: New script to rewrite existing uberbot config files
+    to the yaml format uberbot now expects.
+
+    Clean up command names in plexchar-* documentation and help.
+
+    plexchar-search: Run help if no arguments are given.
+
+    Tag.pm: Fix use of a testing directory for $ROOTDIR.
+
 Net::Calvin 1.01 (2018-01-15)
 
     Cambot: Move all session-list-* commands into just session-list with a
