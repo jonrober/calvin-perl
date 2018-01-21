@@ -20,11 +20,17 @@ use Calvin::Bots::Cambot;
 use Calvin::Bots::Fengroll;
 
 use File::HomeDir;
+use Getopt::Long::Descriptive;
 
 use strict qw(vars);
 use vars qw(%help %bot_info %botlist %commands %bots @connect $bot);
 
 local $SIG{PIPE} = 'IGNORE';
+
+our @OPTIONS = (
+    ['help|h',   'print usage (this text) and exit'],
+    ['errors=s', 'redirect STDERR to this file'],
+);
 
 ############################################################################
 # Basic commands
@@ -109,30 +115,37 @@ sub add_connect {
 
 my $error_file = File::HomeDir->my_home . '/bot.errors';
 
+# Parse command-line options.
+my ($options, $usage) = describe_options("$0 %o <args>", @OPTIONS);
+if ($options->help) {
+    print $usage->text;
+    exit 0;
+}
+
 # We actually want to run as a daemon, so fork ourselves, exit the parent,
-# and close the standard file handles.
+# and close the standard file handle.
 fork && exit;
-close STDIN;
 close STDOUT;
-close STDERR;
-open (STDOUT, '> /dev/null') or die "Could not redirect STDOUT: $!\n";
-open (STDERR, "> $error_file") or die "Could not redirect STDERR: $!\n";
+open (STDOUT, '>', '/dev/null') or die "Could not redirect STDOUT: $!\n";
+close STDIN;
+
+# Errors go to STDERR when we're running as a system daemon, a user-specified
+# file otherwise.
+if ($options->errors) {
+    close STDERR;
+    open (STDERR, '>', $options->errors) or die "Could not redirect STDERR: $!\n";
+}
 
 # Make a new manager, then connect to all clients.  Clients exist in
 #  @connect, with the hostname, port, name the bot is to take, and then
 #  any bots to be run off of that connection.
 my $manager = new Calvin::Manager;
-for my $i (0 .. $#connect) {
-    $manager = add_connect($manager, @{$connect[$i]});
-}
-
 if (@ARGV) {
     my @newbots = Calvin::Config::config_rc($ARGV[0]);
-    for my $i (0 .. $#newbots) {
-        $manager = add_connect($manager, @{$newbots[$i]});
+    for my $bot (@newbots) {
+        $manager = add_connect($manager, @{$bot});
     }
 }
-
 
 # Loop forever, since the bot should never exit except through manual
 # intervention, and process commands.
@@ -158,8 +171,6 @@ while (1) {
         delete $bot_info{$client};
         delete $help{$client};
         delete $commands{$client};
-        #        @{$help{$client}{$key}} = @{$temphelp{$key}};
-        #        @{$commands{$client}} = @tempcommands;
         next;
     }
 
@@ -191,10 +202,6 @@ while (1) {
             else               { list_commands ($client, $user)    }
         } elsif (lc $command eq 'info') {
             $client->msg($user, $bot_info{$client});
-        } elsif ($message =~ /^bot\s+(.*)/) {
-            my @newconnects = make_bot($client, $user, $1);
-            $manager = add_connect($manager, @newconnects);
-            #            $manager = make_bot ($manager, $client, $user, $1);
         } else                 { list_commands ($client, $user)    }
     }
 }
