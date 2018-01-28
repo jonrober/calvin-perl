@@ -1,6 +1,6 @@
                      User-Visible Net::Calvin Changes
 
-Net::Calvin 1.02 (2018-01-21)
+Net::Calvin 1.02 (2018-01-26)
 
     uberbot: Move to use yaml config files, and rewrite config file handling
     to no longer use internal strings that we create and reparse.  These only
@@ -19,6 +19,9 @@ Net::Calvin 1.02 (2018-01-21)
     plexchar-search: Run help if no arguments are given.
 
     Tag.pm: Fix use of a testing directory for $ROOTDIR.
+
+    Added Calvin::Bots::Characters, a new bot that provides plexchar-search
+    read-only functionality as a bot.
 
 Net::Calvin 1.01 (2018-01-15)
 
