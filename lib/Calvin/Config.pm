@@ -22,11 +22,12 @@ use vars qw($host %bottypes);
 # Default hostname, for descbot.
 $host = 'haven.eyrie.org';
 %bottypes = (
-             'cambot'   => \&make_cambot,
-             'descbot'  => \&make_descbot,
-             'nagbot'   => \&make_nagbot,
-             'fengroll' => \&make_fengroll,
-             'standard' => \&make_standard,
+             'cambot'     => \&make_cambot,
+             'descbot'    => \&make_descbot,
+             'nagbot'     => \&make_nagbot,
+             'fengroll'   => \&make_fengroll,
+             'standard'   => \&make_standard,
+             'characters' => \&make_characters,
             );
 
 
@@ -276,6 +277,22 @@ sub make_fengroll {
     $fengroll->passwd($config->{passwd});
 
     return $fengroll;
+}
+
+sub make_characters {
+    my ($config) = @_;
+
+    # Make bot and defaults.
+    my $charbot = new Calvin::Bots::Characters;
+
+    # Normalize our fields, of which we have none.  So this is just there to
+    # error if someone tries to give us one.
+    my @fields      = qw();
+    my @bool_fields = qw();
+    my @list_fields = qw();
+    $config = clean_config($config, \@fields, \@bool_fields, \@list_fields);
+
+    return $charbot;
 }
 
 ############################################################################

@@ -18,8 +18,8 @@ use Calvin::Bots::Descbot;
 use Calvin::Bots::Nagbot;
 use Calvin::Bots::Cambot;
 use Calvin::Bots::Fengroll;
+use Calvin::Bots::Characters;
 
-use File::HomeDir;
 use Getopt::Long::Descriptive;
 
 use strict qw(vars);
@@ -112,8 +112,6 @@ sub add_connect {
 ############################################################################
 # Main routine
 ############################################################################
-
-my $error_file = File::HomeDir->my_home . '/bot.errors';
 
 # Parse command-line options.
 my ($options, $usage) = describe_options("$0 %o <args>", @OPTIONS);

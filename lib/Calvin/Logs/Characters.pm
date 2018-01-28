@@ -93,9 +93,38 @@ sub aliases {
     return %aliases;
 }
 
+# Get a hash of all player names in their 'normal' nicks.
+sub load_players {
+    my %players;
+    my $fname = $DATA_DIR . 'players';
+    open (my $fh, '<', $fname);
+    while (my $line = <$fh>) {
+        chomp $line;
+        next if $line =~ m{^#};
+        next if $line !~ m{\S};
+
+        $players{$line} = ();
+    }
+    close $fh;
+    return %players;
+}
+
 #############################################################################
 # Misc functions
 #############################################################################
+
+# Given a player name, search the player settings to find out if it matches a
+# player, and if so, what the properly capitalized version of the player name
+# is.
+sub canonical_player {
+    my ($self, $player) = @_;
+
+    for my $canonical (keys %{ $self->{PLAYERS} }) {
+        return $canonical if lc($player) eq lc($canonical);
+    }
+
+    return '';
+}
 
 # Given a character name, check to find a unique character matching.  Since
 # some character names are used by multiple players, we need a way to look up
@@ -272,19 +301,18 @@ sub visible_character {
     return 1;
 }
 
-# Build a search filter for characters, given a Getopt::Long::Descriptive
-# options object.
+# Build a search filter for characters, given a hash of options.
 sub filter {
     my ($self, $options) = @_;
 
     # Only set the new options if we were given new ones to set.
     if ($options) {
-        my $minimum_logs = $options->minimumlogs  || 5;
-        my $intro_before = $options->intro_before || '2099-01-01';
-        my $intro_after  = $options->intro_after  || '1990-01-01';
-        my $lastseen     = $options->lastseen     || '2099-01-01';
-        my $player       = $options->player       || undef;
-        my $tag          = $options->tag          || undef;
+        my $minimum_logs = $options->{minimumlogs}  || 5;
+        my $intro_before = $options->{intro_before} || '2099-01-01';
+        my $intro_after  = $options->{intro_after}  || '1990-01-01';
+        my $lastseen     = $options->{lastseen}     || '2099-01-01';
+        my $player       = $options->{player}       || undef;
+        my $tag          = $options->{tag}          || undef;
 
         my %filter = (minimum_logs => $minimum_logs,
                       intro_before => str2time($intro_before),
@@ -413,6 +441,9 @@ sub new {
     $self->{CHARDATARAW} = undef;
     $self->{ALIASES}     = undef;
     $self->{FILTER}      = undef;
+
+    my %players = load_players;
+    $self->{PLAYERS} = \%players;
 
     return $self;
 }
