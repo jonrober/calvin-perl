@@ -1,4 +1,4 @@
-libcalvin-perl (1.02-1) UNRELEASED; urgency=medium
+libcalvin-perl (1.02-1) unstable; urgency=medium
 
   * New upstream release.
     - Switch uberbot to YAML conifg files and rewrite config file handling
@@ -12,7 +12,7 @@ libcalvin-perl (1.02-1) UNRELEASED; urgency=medium
     - Add new Calvin::Bots::Charcters bot that provides read-only
       plexchar-search functionality.
 
- -- Russ Allbery <rra@debian.org>  Sat, 03 Feb 2018 11:14:48 -0800
+ -- Russ Allbery <rra@debian.org>  Sat, 03 Feb 2018 11:15:53 -0800
 
 libcalvin-perl (1.01-2) unstable; urgency=medium
 
