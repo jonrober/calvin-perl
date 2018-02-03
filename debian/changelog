@@ -1,3 +1,19 @@
+libcalvin-perl (1.02-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+    - Switch uberbot to YAML conifg files and rewrite config file handling
+      to no longer use internal strings that are created and reparsed.
+    - New uberbot-config-upgrade script to update uberbot config files.
+    - Redo uberbot STDERR handling to only redirect to a file if a
+      filename is given as an argument.
+    - Clean up command names in plexchar-* documentation and help.
+    - Run help if no arguments are given to plexchar-search.
+    - Fix use of a testing directory for $ROOTDIR in Calvin::Tag.
+    - Add new Calvin::Bots::Charcters bot that provides read-only
+      plexchar-search functionality.
+
+ -- Russ Allbery <rra@debian.org>  Sat, 03 Feb 2018 11:14:48 -0800
+
 libcalvin-perl (1.01-2) unstable; urgency=medium
 
   * Remove libgetopt-long-perl dependency, since this is part of Perl core
