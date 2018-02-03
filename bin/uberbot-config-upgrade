@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+#
+# Converts uberbot config files from old format to a YAML format.
+
+############################################################################
+# Modules and declarations
+############################################################################
+
+require 5.002;
+
+use Perl6::Slurp;
+use YAML;
+
+############################################################################
+# Main program
+############################################################################
+
+my ($fname, $new_fname) = @ARGV;
+
+open(CONFIG, $fname) ||
+    die "Error loading specified config file $fname: $!\n";
+
+# Iterate through the config file, formatting each entry into a data structure
+# then can be converted to useful YAML.
+my ($name, $bot_type, %config, %connect, %bot);
+while (<CONFIG>) {
+    next unless /\S/;
+    s/^\s+//;
+    s/\s+$//;
+    tr/\r\n//d;
+
+    if (/^connect end/) {
+        $config{$name} = {%connect};
+    } elsif (/^connect (\S+) (\S+) (\d+)/) {
+        %connect = ();
+        $name            = $1;
+        $connect{server} = $2;
+        $connect{port}   = $3;
+    } elsif (/^bot end/)                   {
+        $connect{bots}{$bot_type} = {%bot};
+    } elsif (/^bot (\S+)/) {
+        %bot = ();
+        $bot_type = $1;
+    } elsif (/^autojoin (\d+), (.+)/) {
+        my %join = ($1 => $2);
+        $bot{autojoins}{$1} = $2;
+    } elsif (/^(\S+)=(\S+)/) {
+        my $key = $1;
+        my $value = $2;
+        $value =~ s#'##g;
+        $bot{$key} = $value;
+    }
+}
+
+print Dump(\%config);

@@ -19,8 +19,7 @@ use File::Copy qw(move);
 use JSON;
 use Perl6::Slurp;
 
-my $ROOT_DIR   = '/home/jonrober/plexwiki/';
-my $DATA_DIR   = $ROOT_DIR . 'data/';
+my $DATA_DIR   = '/srv/calvin/chardata/';
 my $TAGS_FNAME = $DATA_DIR . 'tags.json';
 my $LOCKFILE   = $DATA_DIR . '.lockfile';
 
@@ -145,6 +144,12 @@ sub characters {
     my %characters = $charobj->characters;
     for my $t (@valid_tags) {
         for my $charkey (keys %{ $self->{TAGS}->{$t} }) {
+
+            # The character should always exist -- we validate when they are
+            # added to a tag.  But for testing, that might not be always true,
+            # so check JIC.
+            next unless exists $characters{$charkey};
+
             push (@output, $characters{$charkey}{display});
         }
     }

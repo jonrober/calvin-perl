@@ -1,6 +1,6 @@
 use ExtUtils::MakeMaker;
 
-$VERSION = '1.01';
+$VERSION = '1.02';
 
 WriteMakefile(
     NAME         => 'Calvin',
@@ -36,6 +36,7 @@ WriteMakefile(
         'bin/plexchar-read'                 => '$(INST_BIN)/plexchar-read',
         'bin/plexchar-search'               => '$(INST_BIN)/plexchar-search',
         'bin/uberbot'                       => '$(INST_BIN)/uberbot',
+        'bin/uberbot-config-upgrade'        => '$(INST_BIN)/uberbot-config-upgrade',
         'scripts/dailyplex'                 => '$(INST_BIN)/dailyplex',
         'scripts/logclean'                  => '$(INST_BIN)/logclean',
     }
