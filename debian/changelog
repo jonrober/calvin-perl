@@ -1,3 +1,10 @@
+libcalvin-perl (1.02-2) unstable; urgency=medium
+
+  * Remove libdata-dumper-perl dependency, since this module is part of
+    Perl core and has no separate existence.
+
+ -- Russ Allbery <rra@debian.org>  Sat, 03 Feb 2018 11:18:55 -0800
+
 libcalvin-perl (1.02-1) unstable; urgency=medium
 
   * New upstream release.

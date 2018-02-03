@@ -17,7 +17,6 @@ Depends:
  libconfig-simple-perl,
  libcurses-perl,
  libcurses-ui-perl,
- libdata-dumper-perl,
  libdate-calc-perl,
  libfile-homedir-perl,
  libgetopt-long-descriptive-perl,
