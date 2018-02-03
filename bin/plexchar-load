@@ -699,15 +699,15 @@ __END__
 
 =head1 NAME
 
-plex-tokenize - Search through given logs and save character information
+plexchar-load - Search through given logs and save character information
 
 =head1 SYNOPSIS
 
-    plex-tokenize <log1> [log2] [...]
+    plexchar-load <log1> [log2] [...]
 
 =head1 DESCRIPTION
 
-plex-tokenize takes Calvin style logs given on the command line and parses them
+plexchar-load takes Calvin style logs given on the command line and parses them
 for any characters channeled.  It uses a mix of IP matching, bracket-channeling
 syntax, and a very large override file to try to disambiguate who owns the
 character and eliminate non-character lines.
@@ -750,8 +750,8 @@ Allow for setting the Storable file location.
 
 =head1 SEE ALSO
 
-plex-search
-character-ui
+plexchar-search
+plexchar-road
 
 =head1 AUTHOR
 

@@ -20,7 +20,6 @@ use vars qw($DATE @dirs @basedirs $file $continue);
 use Curses;
 use Curses::UI;
 use Cwd;
-use Data::Dumper;
 use File::Temp qw( :POSIX );
 use Calvin::Logs;
 use Calvin::Logs::Split;
