@@ -544,3 +544,64 @@ $CUI->set_binding( sub{ window_scenes() }, KEY_LEFT());
 window_scenes();
 $CUI->getobj('mainwindow')->focus;
 $CUI->mainloop();
+
+exit 0;
+
+__END__
+
+##############################################################################
+# Documentation
+##############################################################################
+
+=head1 NAME
+
+logfind - Curses::UI based access reading logs by scene
+
+=head1 SYNOPSIS
+
+    logfind [start-date] [end-date]
+
+=head1 DESCRIPTION
+
+logfind is a menu interface using Curses::UI to list off all logs sorted by
+scene, for a stretch of days.  If the start and end date are given, then all
+scenes that occurred during that range will be shown, and selecting any scene
+will then show the individual day's logs for that scene.  If no start or end
+date are given, we'll assume the starting date as the last day we have logs
+for, and the ending date as today.
+
+=head1 OPTIONS
+
+=over 4
+
+=item --help|-h
+
+Print usage and exit.
+
+=item --manual|--man
+
+Print this perldoc and exit.
+
+=item --grep <string>
+
+Show only those logs that contain a specific string in the tag.
+
+=item --open|s
+
+Show only those logs that are still listed as having an open session, ignoring
+those that were ended and had the session removed.
+
+=head1 TODO
+
+Keep cleaning this up.  Userdata has helped eliminate some of the global vars
+passed around, but not all.
+
+=head1 SEE ALSO
+
+logread
+
+=head1 AUTHOR
+
+Jon Robertson <jonrober@eyrie.org>
+
+=cut

@@ -853,3 +853,44 @@ sub help_view {
     $CUI->status('This is a test.');
     $CUI->nostatus;
 }
+
+exit 0;
+
+__END__
+
+##############################################################################
+# Documentation
+##############################################################################
+
+=head1 NAME
+
+logread - Curses::UI based access reading logs by day
+
+=head1 SYNOPSIS
+
+    logread [date]
+
+=head1 DESCRIPTION
+
+logread is a menu interface using Curses::UI to list off all logs for a given
+day.  If no logs are given, then the current day is assumed.
+
+Base channels have logs lines displayed from the start of the day, while logs
+for other channels are only shown for the day the session started.  So if logs
+began for a normal session yesterday and the bot was not dismissed til today,
+all of the lines for that session would show on yesterday's menu screen.
+
+=head1 TODO
+
+Keep cleaning this up.  Userdata has helped eliminate some of the global vars
+passed around, but not all.
+
+=head1 SEE ALSO
+
+logfind
+
+=head1 AUTHOR
+
+Jon Robertson <jonrober@eyrie.org>
+
+=cut

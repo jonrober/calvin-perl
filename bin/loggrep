@@ -26,7 +26,7 @@ sub grep_files {
     if ($fname =~ /\.gz$/) { $output = `gzip -dc $fname | grep $options$search` }
     else                   { $output = `grep $options$search $fname`            }
     #    print "$!\n";
-    
+
     @grep_result = split (/\n/, $output);
     #foreach (@grep_result) { print "$File::Find::dir/$fname: $_\n" }
     my $shortname = $fname;
@@ -54,3 +54,44 @@ sub recurse_dirs {
     closedir DIR;
     foreach (@files) { grep_files   ("$dir$_") }
 }
+
+exit 0;
+
+__END__
+
+##############################################################################
+# Documentation
+##############################################################################
+
+=head1 NAME
+
+loggrep - Very simple wrapper around grep for Calvin logs
+
+=head1 SYNOPSIS
+
+    loggrep [options] [search-string] [filespec]
+
+=head1 DESCRIPTION
+
+This simply is meant as a wrapper around grep to give it sane knowledge of
+our log structure to grep against.  It simply finds all files matching a
+filespec, then passes those resulting files (along with any given options) to
+grep and returns the output.
+
+=head1 TODO
+
+Just rewrite this as an alias to a find command?  This is really kind of
+overkill, but was written as a quick and dirty solution long ago.
+
+Add more normal headers/perl style.
+
+=head1 SEE ALSO
+
+logread
+loggrep
+
+=head1 AUTHOR
+
+Jon Robertson <jonrober@eyrie.org>
+
+=cut
