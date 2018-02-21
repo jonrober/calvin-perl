@@ -20,7 +20,10 @@ use vars qw($DATE @dirs @basedirs $file $continue);
 use Curses;
 use Curses::UI;
 use Cwd;
+use File::HomeDir;
 use File::Temp qw( :POSIX );
+use Storable;
+
 use Calvin::Logs;
 use Calvin::Logs::Split;
 
@@ -91,10 +94,10 @@ if (@ARGV) {
     ($DATE) = ($file =~ m#^.*/(\d{4}-\d{2}-\d{2})-\S+\.log$#);
 }
 
-# And now make sure any errors don't mess up our screen.  We'll change this
-#  for debugging, when need be.
+# And now make sure any errors don't mess up our screen.
 #open STDERR, "> /dev/null";
-open STDERR, "> logread.errors";
+my $error_file = File::HomeDir->my_home . '/logread.errors';
+open STDERR, '>', $error_file;
 
 #############################################################################
 # Basic Screen Setup
