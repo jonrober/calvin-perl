@@ -1,6 +1,7 @@
 .gitignore
 bin/loggrep
 bin/logread
+bin/logfind
 bin/plexchar-load
 bin/plexchar-read
 bin/plexchar-search
