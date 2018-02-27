@@ -16,6 +16,7 @@ data/skip-words
 docs/README.uberbot
 docs/UPDATES.uberbot
 lib/Calvin/Bots/Cambot.pm
+lib/Calvin/Bots/Characters.pm
 lib/Calvin/Bots/Descbot.pm
 lib/Calvin/Bots/Fengroll.pm
 lib/Calvin/Bots/INroll.pm
