@@ -25,6 +25,7 @@ use Calvin::Manager;
 use Calvin::Logs::Characters;
 use Calvin::Parse qw (:constants);
 
+use Date::Manip::Date;
 use Getopt::Long qw(GetOptionsFromString);
 
 use strict;
@@ -149,7 +150,7 @@ sub send_character_list {
 
     # Create the Characters object and check to see if the player matches one
     # we know about.
-    my $chardata = Calvin::Logs::Characters->new;
+    my $chardata = $self->{CHARACTERS};
     my $player = $chardata->canonical_player($filter{player});
     if ($player eq '') {
         $client->msg ($user, "Could find no matching players for '$player'");
@@ -195,7 +196,7 @@ sub send_tagged_characters {
     return unless %filter;
 
     # Load our character data.
-    my $charobj = Calvin::Logs::Characters->new();
+    my $charobj = $self->{CHARACTERS};
     $charobj->filter(\%filter);
 
     my $tagobj = Calvin::Logs::Characters::Tag->new;
@@ -208,7 +209,7 @@ sub send_tagged_characters {
     # Get the characters.  They're already formatted, so strip down to the
     # base character names.
     my @matches = $tagobj->characters($tag, $charobj);
-    @matches = map { chomp; s#^(\S+)\s.+$#$1#; $_ } @matches;
+    @matches = map { $charobj->name_short($_) } @matches;
 
     unless (@matches) {
         $client->msg ($user, 'No matching characters were found');
@@ -223,12 +224,30 @@ sub send_tagged_characters {
 # Public routines.
 ############################################################################
 
+# Reload our character object via a queue, and set the next reload for the
+# next day.
+sub load_characters {
+    my $self = shift;
+    my ($manager) = @_;
+
+    # Tell the character object to clear all cached data so that it will be
+    # picked up fresh next call.
+    $self->{CHARACTERS}->clear_cache;
+
+    # Set our next time for tomorrow at 6AM, as character data is only
+    # refreshed once a day.
+    my $tomorrow = new Date::Manip::Date;
+    $tomorrow->parse('tomorrow at 6AM');
+    $manager->enqueue ($tomorrow, sub { $self->load_characters ($manager) });
+}
+
 # Create a new Descbot object and set necessary configs to their default.
 sub new {
     my $class = shift;
     my ($client) = @_;
 
     my $self = {};
+    $self->{CHARACTERS} = Calvin::Logs::Characters->new();
     bless ($self, $class);
 
     return $self;
@@ -274,7 +293,15 @@ sub handle_line {
     my $self = shift;
     my ($manager, $client, $line, %result) = @_;
 
-    if (($result{'code'} != C_WHIS) || $result{'on_channels'}) {
+    # On our first connection (when CHARACTERS is not yet defined), load a
+    # character object.  Do this only on the first connection since after that
+    # we'll have a time enqueued.
+    if (($result{'code'} == C_CONNECT) && ($result{'name'} eq $client->{nick})
+        && !defined $self->{CHARACTERS}) {
+
+        $self->load_characters($manager);
+        return 0;
+    } elsif (($result{'code'} != C_WHIS) || $result{'on_channels'}) {
         return 0;
     }
 
