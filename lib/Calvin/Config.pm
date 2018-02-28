@@ -177,7 +177,7 @@ sub make_cambot {
     }
 
     # Add any autojoin entries.
-    if ($config->{autojoins}) {
+    if (defined $config->{autojoins} && ref($config->{autojoins}) eq 'HASH') {
         for my $chan (keys %{ $config->{autojoins}}) {
             my $tag = $config->{autojoins}{$chan};
             $tag =~ s#\\'#'#;
