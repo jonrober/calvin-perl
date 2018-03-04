@@ -1498,8 +1498,10 @@ sub perm_channels {
     my $self = shift;
     my (@chans);
 
-    foreach (@_)     { push (@chans, split (/ /, $_))    }
-    foreach (@chans) { ${$self->{PERM_CHANNELS}}[$_] = 1 }
+    if (defined $_) {
+        foreach (@_)     { push (@chans, split (/ /, $_))    }
+        foreach (@chans) { ${$self->{PERM_CHANNELS}}[$_] = 1 }
+    }
 
     if (defined $self->{PERM_CHANNELS}) { return @{$self->{PERM_CHANNELS}} }
     else                                { return undef                     }

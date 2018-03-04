@@ -131,6 +131,9 @@ sub tag_rolldown {
     return keys %valid_tags;
 }
 
+# Return a list of characters that have a specific tag.  Use a
+# Calvin::Logs::Characters object that already has a filter applied to only
+# show some characters.
 sub characters {
     my ($self, $tag, $charobj) = @_;
 
@@ -140,17 +143,14 @@ sub characters {
     my @valid_tags = $self->tag_rolldown($tag);
     die "tag '$tag' has no characters assigned it\n" unless @valid_tags;
 
+    # For each tagged character, check to see if it passes our filter.
     my @output;
-    my %characters = $charobj->characters;
     for my $t (@valid_tags) {
         for my $charkey (keys %{ $self->{TAGS}->{$t} }) {
+            my ($char, $player) = split(':', $charkey);
+            next unless $charobj->exists($char, $player);
 
-            # The character should always exist -- we validate when they are
-            # added to a tag.  But for testing, that might not be always true,
-            # so check JIC.
-            next unless exists $characters{$charkey};
-
-            push (@output, $characters{$charkey}{display});
+            push (@output, $charkey);
         }
     }
 

@@ -177,10 +177,12 @@ sub make_cambot {
     }
 
     # Add any autojoin entries.
-    for my $chan (keys %{ $config->{autojoins}}) {
-        my $tag = $config->{autojoins}{$chan};
-        $tag =~ s#\\'#'#;
-        $cambot->autojoin($chan, $tag);
+    if (defined $config->{autojoins} && ref($config->{autojoins}) eq 'HASH') {
+        for my $chan (keys %{ $config->{autojoins}}) {
+            my $tag = $config->{autojoins}{$chan};
+            $tag =~ s#\\'#'#;
+            $cambot->autojoin($chan, $tag);
+        }
     }
 
     # Check the log directory is valid, dying if not.

@@ -1,0 +1,607 @@
+#!/usr/bin/perl
+
+# Logfind -- Examine logs over a stretch of time.  For a given time period, it
+#            takes all logs, groups by tag name, and presents a menu.
+#            Optionally, only tags containing a certain string may be
+#            displayed.
+# Usage: logfind [-g searchterm] -s <startdate> [enddate]
+#  -g [searchterm] allows you to see only logs whose tag includes a certain
+#                  word.
+#  -s allows you to only view the logs that are currently bound to a session.
+
+use 5.010;
+use autodie;
+use strict;
+use warnings;
+
+use POSIX;
+use Curses;
+use Curses::UI;
+use Getopt::Long::Descriptive;
+use File::HomeDir;
+use Storable;
+
+use Calvin::Logs;
+use Calvin::Logs::Split;
+
+use Calvin::Logs::Logread qw(&read_prefs &last_file_subdirs &action_quit);
+
+use vars qw(@DIRS $DATE $END_DATE $CUI $GREPNAME $OPEN_SCENES %prefs);
+
+our @OPTIONS = (
+    ['help|h',     'print usage (this text) and exit'],
+    ['manual|man', 'print perldoc and exit'],
+    ['grep|g=s',   'grep for a specific string in tag'],
+    ['open|s',     'only show scenes that are still open'],
+    ['present|p',  'add the current directory to those to search']
+);
+
+# Default set of directories.
+our @DIRS = ('/srv/calvin/logs/fkids/', '/srv/calvin/logs/complex/');
+
+my $debug = 0;
+my $error_file = File::HomeDir->my_home . '/logread.errors';
+open STDERR, '>', $error_file;
+
+########################################################################
+# Main window handling
+########################################################################
+
+# Create the window listing off every potential scene that we can drill down
+# into.
+sub window_scenes {
+    my ($selection) = @_;
+    $selection = 0 unless $selection;
+
+    # Delete the objects that were on the menu before, to start fresh.
+    my $window = $CUI->getobj('mainwindow');
+    if ($window->getobj('navlabel')) { $window->delete('navlabel') }
+    if ($window->getobj('navlist'))  { $window->delete('navlist')  }
+
+    # Add the navigation label for the window.
+    my $title;
+    if ($GREPNAME) { $title = "Logs for '$GREPNAME' from $DATE to $END_DATE" }
+    else           { $title = "Logs from $DATE to $END_DATE"                  }
+    $window->add(
+               'navlabel', 'Label',
+               -width       => -1,
+               -bold        => 1,
+               -text        => $title,
+               -intellidraw => 1,
+   );
+
+    # Empty out the menu from its last state and set up other variables.
+    my (%labels, @scenes);
+
+    # Go through the offsets we've found to set them up for the menu.
+    my %splits = search_for_scenes($DATE, $END_DATE, $OPEN_SCENES, $GREPNAME);
+    my @keys = sort { $splits{$a}{'display'} cmp $splits{$b}{'display'}
+                    } keys %splits;
+    foreach my $scene (@keys) {
+        $labels{$scene} = $splits{$scene}{'display'};
+        push (@scenes, $scene);
+    }
+
+    # Save our menu data so that it can be looked up when an item is selected.
+    $window->userdata(\%splits);
+
+    my $navlist = $window->add(
+                             'navlist', 'Listbox',
+                             -y           => 2,
+                             -values      => \@scenes,
+                             -labels      => \%labels,
+                             -title       => 'Scenes',
+                             -vscrollbar  => 1,
+                             -onchange    => \&window_logs,
+                             -intellidraw => 1,
+                             );
+
+    # Select the correct item in the list...
+    for (my $i = 0; $i < $selection; $i++) {
+        $navlist->option_next();
+    }
+
+    $navlist->focus();
+}
+
+# Create the menu of all of the different logs for one specific scene.
+sub window_logs {
+    my $listbox = shift;
+    my $label = $listbox->parent->getobj('navlabel');
+
+    # Save the selection from the main menu that got us here, for when we back
+    #  out again and for knowing which item to display.
+    my @sel = $listbox->get;
+    @sel = ('<none>') unless @sel;
+    my $main_selection = $sel[0];
+
+    # Grab all the possible channels for the selected menu item.
+    my $window = $CUI->getobj('mainwindow');
+    my $instances = $window->userdata->{$main_selection};
+
+    # Kill the objects on the old window.
+    if ($window->getobj('navlabel')) { $window->delete('navlabel') }
+    if ($window->getobj('navlist'))  { $window->delete('navlist')  }
+
+    # Create the window for our new.
+    $window->add(
+               'navlabel', 'Label',
+               -width => -1,
+               -bold => 1,
+               -text => "Logs for '$instances->{tag}' from $DATE to $END_DATE",
+               -intellidraw  => 1,
+               );
+
+    # Find the channels to split and add them to the menu.
+    my (%labels, @scenes);
+    my @keys = sort { $a cmp $b } keys %{$instances};
+    foreach my $scene_date (@keys) {
+        next if $scene_date eq 'tag' || $scene_date eq 'display';
+        next unless $instances->{$scene_date}{'display'};
+
+        # The selection needs to encode both the current selection (the scene
+        # tag) and the scene date, so that the logsplit function knows what to
+        # split.
+        my $sel = $main_selection . ' ' . $scene_date;
+        $labels{$sel} = $instances->{$scene_date}{'display'};
+        push (@scenes, $sel);
+    }
+
+    # Add all of these new items into the curses window.
+    my $navlist = $window->add(
+                             'navlist', 'Listbox',
+                             -y           => 2,
+                             -values      => \@scenes,
+                             -labels      => \%labels,
+                             -title       => 'Scenes',
+                             -vscrollbar  => 1,
+                             -onchange    => \&window_split,
+                             -intellidraw => 1,
+                             );
+
+    $navlist->focus();
+}
+
+# And now the window used to display a split log.
+sub window_split {
+    my $listbox = shift;
+    my $label = $listbox->parent->getobj('navlabel');
+
+    # Find which item had been selected.
+    my @sel = $listbox->get;
+    my ($tagname, $log) = ($sel[0] =~ /^(.+)\s(\S+)$/);
+
+    # Get the data for that selection from our userdata.
+    my $mainwindow = $CUI->getobj('mainwindow');
+    my $selection = $mainwindow->userdata->{$tagname}{$log};
+
+    # Grab various values from the selection.
+    my $channel = $selection->{'channel'};
+    my $offset  = $selection->{'offset'};
+    my $fname   = $selection->{'file'};
+    my $base    = $selection->{'base'};
+
+    # Set up our channel split.
+    my $split = Calvin::Logs::Split->new;
+    $split->preferences(\%prefs);
+    $split->offset($offset);
+    $split->filename($fname);
+    $split->channel($channel);
+
+    # Drop out of curses mode, do the splitting, and then return after.
+    $CUI->leave_curses();
+    $split->do_split;
+    $CUI->reset_curses();
+
+    # Clear the last item selected so that we can immediately choose it
+    # again if we so want.
+    my $menu  = $listbox->parent->getobj('navlist');
+    $menu->clear_selection();
+
+    # Make the main menu then refresh properly after viewing.
+    refresh();
+    clear();
+    $CUI->getobj('mainwindow')->focus();
+    $CUI->getobj('mainwindow')->intellidraw();
+    $menu->focus();
+    $menu->intellidraw();
+}
+
+########################################################################
+# Other Windows
+########################################################################
+
+# Create the window to handle accepting a new search term for tags.
+sub window_new_searchterm {
+
+    # Delete all the objects that were on this window before, to start fresh.
+    my $window = $CUI->getobj('newsearch');
+    if ($window->getobj('search_label')) { $window->delete('search_label') }
+    if ($window->getobj('newgrep'))      { $window->delete('newgrep')      }
+    if ($window->getobj('buttons'))      { $window->delete('buttons')      }
+
+    # Add the label to prompt the user.
+    $window->add(
+        'search_label', 'Label',
+        -x             => 0,
+        -y             => 0,
+        -width         => 20,
+        -textalignment => 'left',
+        -text          => 'Search Term: ',
+    );
+
+    # Add the actual text field  that will accept the new search term.
+    $window->add(
+        'newgrep', 'TextEntry',
+        -x    => 14,
+        -y    => 0,
+        -text => '',
+    )->focus;
+
+    # And last, add the buttons.
+    my $buttons = $window->add(
+        'buttons', 'Buttonbox',
+        -x       => 14,
+        -y       => 2,
+        -buttons => [
+
+            # Save button, which sets the value entered into the var for the
+            # search term and then goes back to the main menu.
+            {
+                -label => '< Save >',
+                -onpress => sub {
+                    my $obj = $window->getobj('newgrep');
+                    $GREPNAME = $obj->get;
+                    window_scenes();
+                },
+            },
+
+            # Cancel button, which just goes back to the main window.
+            {
+                -label => '< Cancel >',
+                -onpress => sub { $CUI->getobj('mainwindow')->focus }
+            },
+        ],
+    );
+
+    $window->focus;
+}
+
+# This creats the object to select a new date.  It works for either starting
+# or ending date, depending which field is passed to the value.
+sub calendar_view {
+    my ($field) = @_;
+
+    $$field = $CUI->calendardialog(-date => $$field);
+    window_scenes();
+}
+
+########################################################################
+# Functions to identify the logs and scenes to split
+########################################################################
+
+# Loads all current session identifiers from a file into a hash.  This
+# simply lets us tell which sessions are still open.
+sub load_session_identifiers {
+    my ($logdir) = @_;
+
+    # No session identifiers if no file.
+    my $session_file = $logdir.'/.sessions';
+    return () unless -e $session_file;
+
+    # Otherwise get the file and then return each identifier.
+    my %ids;
+    my $sessions = retrieve($session_file);
+    foreach my $key (keys %{$sessions}) {
+        my $id = ${$sessions}{$key}{'identifier'};
+        $ids{$id} = 1;
+    }
+    return %ids;
+}
+
+# Finds all open sessions, then returns a data structure containing information
+#  needed to build menus for the sessions' individual logs.
+sub search_for_scenes {
+    my ($date, $end_date, $session_flag, $grepname) = @_;
+    my (%splits, %sessions);
+
+    my $dirobj = Calvin::Logs->new;
+    foreach my $dir (@DIRS) {
+
+        # If in session mode, grab all sessions for this logdir, skipping the
+        #  dir if none exist.
+        my %session_ids;
+        if ($session_flag) {
+            %session_ids = load_session_identifiers($dir);
+            next unless %session_ids;
+        }
+
+        # Go through the date range we were given.  For each day, pluck out
+        # only the invites which match the sessions we need and add them
+        # to the list of sessions we view.
+        my $current_date = $date;
+        while ($current_date le $end_date) {
+
+            # Get the file name for this date.
+            $dirobj->dir($dir);
+            my $fname = $dirobj->find_fname($current_date, '');
+
+            # Update our date, then move on if there was no matching filename.
+            my $today = $current_date;
+            $current_date = tomorrow($current_date);
+            next unless $fname && -e $fname;
+
+            # Find the suffix we want to append to the file name...
+            my ($suffix) = $fname =~ /^.*\/(\w+)\/.*?\//;
+            $suffix = ucfirst ($suffix);
+            if ($dir =~ /\/fkids\//) { $suffix = "<FK> ($suffix)" }
+            else                     { $suffix = "($suffix)"      }
+
+            # Create a marker so that we will only include a base channel once,
+            # even if the bot died and was re-invited.  We only do this for
+            # base channels because A> non-base channels can be dismissed and
+            # reinvited for something else, and B> base channels will display
+            # to end of log anyway.
+            my @base_already_done = ();
+
+            # Read in the offsets file!
+            my $logobj = Calvin::Logs->new;
+            $logobj->filename($fname);
+            my @offsets = $logobj->parse_offsetfile;
+
+            # Iterates through the offsets returned, and adds items to the menu
+            #  array.  Channels with offset 0 are base channels, so are marked
+            #  special.
+            for (my $i = 0; $i <= $#offsets; $i++) {
+                my $chan     = $offsets[$i][0];
+                my $tag      = $offsets[$i][1];
+                my $offset   = $offsets[$i][2];
+                my $chan_key = $offsets[$i][3] || undef;
+
+                # Clean up tag cruft like surrounding brackets and ending
+                #  (Cont.) notes.
+                $tag =~ s#^\[(.*)\]$#$1#;
+                $tag =~ s# \(.*\)$##i;
+
+                # Skip channels that don't match a tag grep name, if it is set.
+                next if $grepname && $tag !~ /$grepname/i;
+
+                # If we're viewing only open sessions, then skip any scenes on base
+                # channels or that don't exist in the session file.
+                next if $session_flag && $offset == 0;
+                next if $session_flag && !defined $chan_key;
+                next if $session_flag && !exists $session_ids{$chan_key};
+
+                # Create the name for looking up logs...  If we have a channel
+                #  identifier, we use that instead of the tag name to ward off
+                #  changes to the tag.
+                my $name = $chan_key || $tag;
+                unless (exists($splits{lc($name)})) {
+                    $splits{lc($name)}{'display'} = "$today: $tag";
+                    $splits{lc($name)}{'tag'}     = $tag;
+                }
+
+                # Mark each base channel only once per log, where base is
+                # determined by whether or not it has an offset.
+                my $base = 0;
+                if ($offset == 0) {
+                    next if $base_already_done[$chan];
+                    $base_already_done[$chan] = 1;
+                    $base = 1;
+                }
+
+                my $display = sprintf("%s: Channel %2d [%s] %s", $today,
+                                      $chan, $tag, $suffix);
+                $splits{lc($name)}{$fname} = {
+                    channel => $chan,
+                    offset  => $offset,
+                    display => $display,
+                    file    => $fname,
+                    base    => $base,
+                };
+            }
+        }
+    }
+
+    return %splits;
+}
+
+# Calculate the next day and return it.
+sub tomorrow {
+    my ($date) = @_;
+
+    my ($year, $month, $day) = ($date =~ /^(\d{4})-(\d{2})-(\d{2})$/);
+    my $logday = mktime(0, 0, 6, $day, $month - 1, $year - 1900);
+    $logday += 60 * 60 * 24;
+    return strftime("%Y-%m-%d", localtime($logday));
+}
+
+#####################################################################
+# Main program loop
+#####################################################################
+
+# Ignore any pipings.. we're setting this up for splitting logs out, later.
+local $SIG{PIPE} = 'IGNORE';
+
+# Get errors and output in the same order.
+STDOUT->autoflush;
+
+# Clean up the path name.
+my $fullpath = $0;
+$0 =~ s{ ^ .* / }{}xms;
+
+# Parse command-line options.
+my ($options, $usage) = describe_options("$0 %o <args>", @OPTIONS);
+if ($options->manual) {
+    print "Feeding myself to perldoc, please wait....\n";
+    exec 'perldoc', '-t', $fullpath;
+} elsif ($options->help) {
+    print $usage->text;
+    exit 0;
+}
+$GREPNAME    = $options->grep || '';
+$OPEN_SCENES = $options->open;
+
+# Load our preferences, or defaults if none are set.
+%prefs = read_prefs;
+
+# Grab the directories out of preferences, if they are set there.
+if ($prefs{'logdir'}) {
+    @DIRS = @{$prefs{'logdir'}};
+}
+
+# If we've given a -p, then add our current directory to the dirs to look at.
+if ($options->present) {
+    my $curdir = cwd();
+    $curdir =~ s/^\w://;
+    $curdir .= '/' unless $curdir =~ m{/$};
+    push (@DIRS, $curdir);
+}
+
+# Set the date and end date.  If none are given, pick up the starting date from
+# the last filename, and the end date from today (usually the same day).
+($DATE, $END_DATE) = @ARGV;
+unless (defined $DATE) {
+    my $file = last_file_subdirs (@DIRS);
+    ($DATE) = ($file =~ m#^.*/(\d{4}-\d{2}-\d{2})-\S+\.log$#);
+}
+$END_DATE ||= strftime("%Y-%m-%d", localtime());
+
+# Create the root object.
+$CUI = new Curses::UI (
+                        -clear_on_exit => 1,
+                        -debug         => $debug,
+                        -intellidraw   => 1,
+);
+
+# Creating each window.. this just makes the existences of the windows
+# themselves.  We actually define what goes into each window further down,
+# only when specific functions are called, since the contents will vary.
+
+# Our main window...
+$CUI->add(
+    'mainwindow'  => 'Window',
+    -title        => "Logfind",
+    -intellidraw  => 1,
+    -border       => 1,
+    -titlereverse => 0,
+    -padtop       => 0,
+    -padbottom    => 0,
+    -ipad         => 1
+);
+
+$CUI->add(
+    'newsearch' => 'Window',
+    -border     => 1,
+    -ipad       => 2,
+    -height     => 9,
+    -width      => 60,
+    -centered   => 1,
+    -title      => "New Search Term",
+);
+
+########################################################################
+# Menubar.
+########################################################################
+
+my $file_menu = [
+                 { -label => 'Quit program',
+                   -value => sub { action_quit($CUI) }
+                 },
+                ];
+
+my $options_menu = [
+    { -label => 'New Search Term',   -value => sub{ window_new_searchterm() } },
+    { -label => 'New Starting Date', -value => sub{ calendar_view('date') } },
+    { -label => 'New Ending Date',   -value => sub{ calendar_view('end_date') } },
+];
+
+my $main_menu = [
+    { -label => 'File',    -submenu => $file_menu     },
+    { -label => 'Options', -submenu => $options_menu  },
+];
+
+$CUI->add('main_menu', 'Menubar', -menu => $main_menu);
+
+########################################################################
+# Setup bindings and focus
+########################################################################
+
+# Bind <CTRL+Q> to quit.
+$CUI->set_binding( sub{ action_quit($CUI) }, "\cQ" );
+$CUI->set_binding( sub{ action_quit($CUI) }, "q" );
+
+# Bind s and e to start and ending calendar dates.
+$CUI->set_binding( sub{ calendar_view('date') }, "s" );
+$CUI->set_binding( sub{ calendar_view('end_date') }, "e" );
+
+# Bind <CTRL+X> to menubar.
+$CUI->set_binding( sub{ shift()->root->focus('main_menu') }, "\cX" );
+
+# Left key backs us to the main menu again.
+$CUI->set_binding( sub{ window_scenes() }, KEY_LEFT());
+
+window_scenes();
+$CUI->getobj('mainwindow')->focus;
+$CUI->mainloop();
+
+exit 0;
+
+__END__
+
+##############################################################################
+# Documentation
+##############################################################################
+
+=head1 NAME
+
+logfind - Curses::UI based access reading logs by scene
+
+=head1 SYNOPSIS
+
+    logfind [start-date] [end-date]
+
+=head1 DESCRIPTION
+
+logfind is a menu interface using Curses::UI to list off all logs sorted by
+scene, for a stretch of days.  If the start and end date are given, then all
+scenes that occurred during that range will be shown, and selecting any scene
+will then show the individual day's logs for that scene.  If no start or end
+date are given, we'll assume the starting date as the last day we have logs
+for, and the ending date as today.
+
+=head1 OPTIONS
+
+=over 4
+
+=item --help|-h
+
+Print usage and exit.
+
+=item --manual|--man
+
+Print this perldoc and exit.
+
+=item --grep <string>
+
+Show only those logs that contain a specific string in the tag.
+
+=item --open|s
+
+Show only those logs that are still listed as having an open session, ignoring
+those that were ended and had the session removed.
+
+=head1 TODO
+
+Keep cleaning this up.  Userdata has helped eliminate some of the global vars
+passed around, but not all.
+
+=head1 SEE ALSO
+
+logread
+
+=head1 AUTHOR
+
+Jon Robertson <jonrober@eyrie.org>
+
+=cut

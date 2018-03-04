@@ -30,6 +30,7 @@ WriteMakefile(
         'lib/Calvin/Logs.pm'                => '$(INST_LIBDIR)/Calvin/Logs.pm',
         'lib/Calvin/Manager.pm'             => '$(INST_LIBDIR)/Calvin/Manager.pm',
         'lib/Calvin/Parse.pm'               => '$(INST_LIBDIR)/Calvin/Parse.pm',
+        'bin/logfind'                       => '$(INST_BIN)/logfind',
         'bin/loggrep'                       => '$(INST_BIN)/loggrep',
         'bin/logread'                       => '$(INST_BIN)/logread',
         'bin/plexchar-load'                 => '$(INST_BIN)/plexchar-load',
