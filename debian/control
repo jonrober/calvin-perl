@@ -18,6 +18,7 @@ Depends:
  libcurses-perl,
  libcurses-ui-perl,
  libdate-calc-perl,
+ libdate-manip-perl,
  libfile-homedir-perl,
  libgetopt-long-descriptive-perl,
  libhash-merge-perl,
