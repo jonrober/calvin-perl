@@ -1,6 +1,6 @@
                      User-Visible Net::Calvin Changes
 
-Net::Calvin 1.03 (2018-02-20)
+Net::Calvin 1.03 (2018-03-17)
 
     Added perldoc for logread, logfind, and loggrep.
 
