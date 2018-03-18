@@ -1,7 +1,13 @@
-libcalvin-perl (1.02-3) UNRELEASED; urgency=medium
+libcalvin-perl (1.03-1) UNRELEASED; urgency=medium
 
   [ Jon Robertson ]
   * Add libdate-manip-perl to dependencies.
+  * New upstream release.
+    - Add manual pages for logread and loggrep.
+    - New logfind script to search logs by tags.
+    - Save logread errors file to the running user's home directory.
+    - Fix Cambot errors when a user bot doesn't have all the same things
+      set as the system bot, such as autojoins.
 
   [ Russ Allbery ]
   * Add upstream-vcs-tag pattern to debian/gbp.conf.
