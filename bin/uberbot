@@ -29,6 +29,7 @@ local $SIG{PIPE} = 'IGNORE';
 
 our @OPTIONS = (
     ['help|h',   'print usage (this text) and exit'],
+    ['debug',    'do not fork and detach, or redirect output'],
     ['errors=s', 'redirect STDERR to this file'],
 );
 
@@ -122,16 +123,19 @@ if ($options->help) {
 
 # We actually want to run as a daemon, so fork ourselves, exit the parent,
 # and close the standard file handle.
-fork && exit;
-close STDOUT;
-open (STDOUT, '>', '/dev/null') or die "Could not redirect STDOUT: $!\n";
-close STDIN;
+unless ($options->debug) {
+    fork && exit;
+    close STDOUT;
+    open (STDOUT, '>', '/dev/null') or die "Could not redirect STDOUT: $!\n";
+    close STDIN;
 
-# Errors go to STDERR when we're running as a system daemon, a user-specified
-# file otherwise.
-if ($options->errors) {
-    close STDERR;
-    open (STDERR, '>', $options->errors) or die "Could not redirect STDERR: $!\n";
+    # Errors go to STDERR when we're running as a system daemon, a user-specified
+    # file otherwise.
+    if ($options->errors) {
+        close STDERR;
+        open (STDERR, '>', $options->errors)
+            or die "Could not redirect STDERR: $!\n";
+    }
 }
 
 # Make a new manager, then connect to all clients.  Clients exist in

@@ -332,11 +332,74 @@ sub filter {
 # Exported functions
 ############################################################################
 
+# Given a character and player (or a single key with both separated by :),
+# give back a short name for the character.  This is either the character
+# base name or the character plus player if the character name is not unique.
+sub name_short {
+    my ($self, $char, $player) = @_;
+
+    if (!defined $player) {
+        ($char, $player) = split(':', $char);
+    }
+
+    my %characters = $self->raw_characters;
+    my %aliases    = $self->aliases;
+
+    return '' unless exists $characters{$char}{$player};
+    if (scalar (keys %{ $characters{$char}}) == 1) {
+        return $char;
+    } else {
+        return "$char:$player";
+    }
+}
+
+# Given a character and player (or a single key with both separated by :),
+# give back a long name for the character.  This is the character plus player
+# plus any aliases the character has.
+sub name_long {
+    my ($self, $char, $player) = @_;
+
+    if (!defined $player) {
+        ($char, $player) = split(':', $char);
+    }
+
+    my %characters = $self->raw_characters;
+    my %aliases    = $self->aliases;
+
+    return '' unless exists $characters{$char}{$player};
+
+    my $other_nicks = '';
+    if (exists $aliases{owners}{$char}{$player}) {
+        my @nicks = keys %{ $aliases{owners}{$char}{$player} };
+        $other_nicks = '(' . join(', ', @nicks) . ')';
+    }
+
+    return sprintf("%-20s %-15s %s\n", $char, $player, $other_nicks);
+}
+
+# Tell whether a specific character exists.
+sub exists {
+    my ($self, $char, $player) = @_;
+
+    my %characters = $self->raw_characters;
+    my %aliases    = $self->aliases;
+
+    return 0 unless exists $characters{$char}{$player};
+
+    my (@nicks);
+    if (exists $aliases{owners}{$char}{$player}) {
+        @nicks = keys %{ $aliases{owners}{$char}{$player} };
+    }
+    my @all_chars = ($char, @nicks);
+    return 0 unless $self->visible_character(\@all_chars, $player,
+                                             %characters);
+
+    return 1;
+}
+
 # Command handler to list all characters.
 sub characters {
     my ($self) = @_;
-
-    return %{ $self->{CHARDATA} } if defined $self->{CHARDATA};
 
     my %characters = $self->raw_characters;
     my %aliases    = $self->aliases;
@@ -365,7 +428,6 @@ sub characters {
         }
     }
 
-    $self->{CHARDATA} = \%all;
     return %all;
 }
 
@@ -437,7 +499,6 @@ sub new {
     }
     @{ $self->{CHARACTER_FILES} } = @files;
 
-    $self->{CHARDATA}    = undef;
     $self->{CHARDATARAW} = undef;
     $self->{ALIASES}     = undef;
     $self->{FILTER}      = undef;
@@ -446,6 +507,15 @@ sub new {
     $self->{PLAYERS} = \%players;
 
     return $self;
+}
+
+# Clear out the raw character data hash, so that future lookups will load it
+# fresh.  Used for any long-running processes.
+sub clear_cache {
+    my $self = shift;
+
+    $self->{CHARDATARAW} = undef;
+    $self->{ALIASES}     = undef;
 }
 
 1;

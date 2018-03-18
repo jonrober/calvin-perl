@@ -20,7 +20,10 @@ use vars qw($DATE @dirs @basedirs $file $continue);
 use Curses;
 use Curses::UI;
 use Cwd;
+use File::HomeDir;
 use File::Temp qw( :POSIX );
+use Storable;
+
 use Calvin::Logs;
 use Calvin::Logs::Split;
 
@@ -91,10 +94,10 @@ if (@ARGV) {
     ($DATE) = ($file =~ m#^.*/(\d{4}-\d{2}-\d{2})-\S+\.log$#);
 }
 
-# And now make sure any errors don't mess up our screen.  We'll change this
-#  for debugging, when need be.
+# And now make sure any errors don't mess up our screen.
 #open STDERR, "> /dev/null";
-open STDERR, "> logread.errors";
+my $error_file = File::HomeDir->my_home . '/logread.errors';
+open STDERR, '>', $error_file;
 
 #############################################################################
 # Basic Screen Setup
@@ -850,3 +853,44 @@ sub help_view {
     $CUI->status('This is a test.');
     $CUI->nostatus;
 }
+
+exit 0;
+
+__END__
+
+##############################################################################
+# Documentation
+##############################################################################
+
+=head1 NAME
+
+logread - Curses::UI based access reading logs by day
+
+=head1 SYNOPSIS
+
+    logread [date]
+
+=head1 DESCRIPTION
+
+logread is a menu interface using Curses::UI to list off all logs for a given
+day.  If no logs are given, then the current day is assumed.
+
+Base channels have logs lines displayed from the start of the day, while logs
+for other channels are only shown for the day the session started.  So if logs
+began for a normal session yesterday and the bot was not dismissed til today,
+all of the lines for that session would show on yesterday's menu screen.
+
+=head1 TODO
+
+Keep cleaning this up.  Userdata has helped eliminate some of the global vars
+passed around, but not all.
+
+=head1 SEE ALSO
+
+logfind
+
+=head1 AUTHOR
+
+Jon Robertson <jonrober@eyrie.org>
+
+=cut
