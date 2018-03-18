@@ -1,5 +1,9 @@
 libcalvin-perl (1.02-3) UNRELEASED; urgency=medium
 
+  [ Jon Robertson ]
+  * Add libdate-manip-perl to dependencies.
+
+  [ Russ Allbery ]
   * Add upstream-vcs-tag pattern to debian/gbp.conf.
 
  -- Russ Allbery <rra@debian.org>  Sat, 17 Mar 2018 21:31:46 -0700
