@@ -1,5 +1,11 @@
                      User-Visible Net::Calvin Changes
 
+Net::Calvin 1.04 (unreleased)
+
+    Switch to Module::Build for the build system.  As a side effect, this
+    will install the manual pages for the things that have POD
+    documentation.
+
 Net::Calvin 1.03 (2018-03-17)
 
     Added perldoc for logread, logfind, and loggrep.
