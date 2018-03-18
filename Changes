@@ -1,5 +1,16 @@
                      User-Visible Net::Calvin Changes
 
+Net::Calvin 1.03 (2018-03-17)
+
+    Added perldoc for logread, logfind, and loggrep.
+
+    logread: Save errors file to the running user's home directory.
+
+    Cambot.pm: Fix errors when Cambot is run by users who don't have all of
+    the same things set as a system bot does, such as autojoins.
+
+    logfind: Add script to search logs by tags.
+
 Net::Calvin 1.02 (2018-01-26)
 
     uberbot: Move to use yaml config files, and rewrite config file handling

@@ -196,7 +196,10 @@ sub cmd_tag_characters {
 
     my $tagobj = Calvin::Logs::Characters::Tag->new;
     my @matches = $tagobj->characters($tag, $charobj);
-    for my $line (@matches) { print $line }
+    for my $char (@matches) {
+        my $line = $charobj->name_long($char);
+        print $line;
+    }
 }
 
 #############################################################################
