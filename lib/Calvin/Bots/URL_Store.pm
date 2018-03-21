@@ -42,7 +42,7 @@ sub clean_nick {
 
 sub addurl_cmd {
     my ($self, $client, $url, $channel) = @_;
-    
+
     if ($#{${$self->{URLS}}[$channel]} >= ($self->urls - 1)) {
         pop @{${$self->{URLS}}[$channel]};
     }
@@ -51,9 +51,9 @@ sub addurl_cmd {
 
 sub listurl_cmd {
     my ($self, $client, $user, $message) = @_;
-    
+
     my ($numlines, $channel, @rest) = split(/ /, $message);
-    
+
     $channel = 1 unless $channel;
 
     if ($#{${$self->{URLS}}[$channel]} >= ($self->max_urls - 1)) {
@@ -69,7 +69,7 @@ sub listurl_cmd {
 
 	if ($numlines < 0) {
 		$client->msg ($user, "Sorry, I have no URLS from channel $channel.");
-		
+
 	} else {
 		while ($numlines) {
 			$client->msg ($user, "URL: ".${$self->{URLS}}[$channel][$numlines - 1]);
@@ -85,7 +85,7 @@ sub listurl_cmd {
 
 sub max_urls {
     my $self = shift;
-    if (@_) { $self->{MAX_URLS} = shift }
+    if (@_ && defined $_[0]) { $self->{MAX_URLS} = shift }
     return $self->{MAX_URLS};
 }
 
@@ -137,8 +137,8 @@ sub handle_line {
         ($result{'name'} eq $client->{nick})) {
         $client->{nick} = $result{'s1'};
 
-	} elseif ($result{'code'} == C_PUBLIC || $result{'code'} == C_POSE 
-					|| $result{'code'} == C_PPOSE 
+	} elseif ($result{'code'} == C_PUBLIC || $result{'code'} == C_POSE
+					|| $result{'code'} == C_PPOSE
 					|| $result{'code'} == C_NARRATE
 					|| $result{'code'} == C_ALIAS
 					|| $result{'code'} == C_ALIAS_POSE
@@ -148,9 +148,9 @@ sub handle_line {
 					|| $result{'code'} == C_YELL_PPOSE
 					|| $result{'code'} == C_YELL_NARR
 					|| $result{'code'} == C_TOPIC_CHANGE) {
-	
+
 		$message = $result{'s1'};
-		
+
 		# Find any URLs in the line.
 		if (($message =~ m#<(http://[^ ]+)>#)
 				|| $message =~ m#(http://[^ ]+)[.,)']?#)) {

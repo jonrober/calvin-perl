@@ -1407,7 +1407,7 @@ sub inactive_defaults {
 #  number of sessions after any change.
 sub max_sessions {
     my $self = shift;
-    if (@_) { $self->{MAX_SESSIONS} = shift }
+    if (@_ && defined $_[0]) { $self->{MAX_SESSIONS} = shift }
     return $self->{MAX_SESSIONS};
 }
 
@@ -1415,7 +1415,7 @@ sub max_sessions {
 #  we join the channel.
 sub spam_after_invite {
 	my $self = shift;
-	if (@_) { $self->{SPAM_AFTER_INVITE} = shift }
+	if (@_ && defined $_[0]) { $self->{SPAM_AFTER_INVITE} = shift }
 	return $self->{SPAM_AFTER_INVITE};
 }
 
@@ -1423,21 +1423,21 @@ sub spam_after_invite {
 #  is sent us, also sets that flag to the value.
 sub spamflag {
     my $self = shift;
-    if (@_) { $self->{SPAMFLAG} = shift }
+    if (@_ && defined $_[0]) { $self->{SPAMFLAG} = shift }
     return $self->{SPAMFLAG};
 }
 
 # Sets the logdir if one is sent.  Returns the logging directory.
 sub logdir {
     my $self = shift;
-    if (@_) { $self->{LOGDIR} = shift }
+    if (@_ && defined $_[0]) { $self->{LOGDIR} = shift }
     return $self->{LOGDIR};
 }
 
 # Sets the logdir if one is sent.  Returns the logging directory.
 sub fname {
     my $self = shift;
-    if (@_) { $self->{FNAME} = shift }
+    if (@_ && defined $_[0]) { $self->{FNAME} = shift }
     return $self->{FNAME};
 }
 
@@ -1445,7 +1445,7 @@ sub fname {
 #  a value, change the flag to that value.
 sub add_time {
     my $self = shift;
-    if (@_) { $self->{ADD_TIME} = shift }
+    if (@_ && defined $_[0]) { $self->{ADD_TIME} = shift }
     return $self->{ADD_TIME};
 }
 
@@ -1453,7 +1453,7 @@ sub add_time {
 #  lines to that value.
 sub max_recchan {
     my $self = shift;
-    if (@_) { $self->{MAX_RECCHAN} = shift }
+    if (@_ && defined $_[0]) { $self->{MAX_RECCHAN} = shift }
     return $self->{MAX_RECCHAN};
 }
 
@@ -1461,7 +1461,7 @@ sub max_recchan {
 #  then change the max minutes to that value.
 sub max_readlog {
     my $self = shift;
-    if (@_) { $self->{MAX_READLOG} = shift }
+    if (@_ && defined $_[0]) { $self->{MAX_READLOG} = shift }
     return $self->{MAX_READLOG};
 }
 
@@ -1469,26 +1469,26 @@ sub max_readlog {
 #  request.  If sent a value, change the flag to that value.
 sub enable_recall {
     my $self = shift;
-    if (@_) { $self->{ENABLE_RECALL} = shift }
+    if (@_ && defined $_[0]) { $self->{ENABLE_RECALL} = shift }
     return $self->{ENABLE_RECALL};
 }
 
 sub use_numerics {
     my $self = shift;
-    if (@_) { $self->{USE_NUMERICS} = shift }
+    if (@_ && defined $_[0]) { $self->{USE_NUMERICS} = shift }
     return $self->{USE_NUMERICS};
 }
 
 sub recall_passwd {
     my $self = shift;
-    if (@_) { $self->{RECALL_PASSWD} = shift }
+    if (@_ && defined $_[0]) { $self->{RECALL_PASSWD} = shift }
     return $self->{RECALL_PASSWD};
 }
 
 # Sets the base name of the logfile if one is sent.  Returns the base name.
 sub basename {
     my $self = shift;
-    if (@_) { $self->{BASENAME} = shift }
+    if (@_ && defined $_[0]) { $self->{BASENAME} = shift }
     return $self->{BASENAME};
 }
 
