@@ -59,7 +59,6 @@ sub listurl_cmd {
     if ($#{${$self->{URLS}}[$channel]} >= ($self->max_urls - 1)) {
         shift @{${$self->{URLS}}[$channel]};
     }
-    push (@{${$self->{URLS}}[$channel]}, $line);
 
 	if ($numlines > ($#{${$self->{URLS}}[$channel]} + 1)) {
 		$numlines = $#{${$self->{URLS}}[$channel]};
@@ -137,7 +136,7 @@ sub handle_line {
         ($result{'name'} eq $client->{nick})) {
         $client->{nick} = $result{'s1'};
 
-	} elseif ($result{'code'} == C_PUBLIC || $result{'code'} == C_POSE
+	} elsif ($result{'code'} == C_PUBLIC || $result{'code'} == C_POSE
 					|| $result{'code'} == C_PPOSE
 					|| $result{'code'} == C_NARRATE
 					|| $result{'code'} == C_ALIAS
@@ -152,8 +151,8 @@ sub handle_line {
 		$message = $result{'s1'};
 
 		# Find any URLs in the line.
-		if (($message =~ m#<(http://[^ ]+)>#)
-				|| $message =~ m#(http://[^ ]+)[.,)']?#)) {
+		if ($message =~ m#<(http://[^ ]+)>#
+				|| $message =~ m#(http://[^ ]+)[.,)']?#) {
 
 			addurl_cmd($client, $1, $result{'channel'});
 		}
