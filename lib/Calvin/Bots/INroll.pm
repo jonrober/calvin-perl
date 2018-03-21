@@ -55,13 +55,13 @@ sub do_roll {
     my ($client, $user) = @_;
     my ($d1, $d2, $d3, $total);
     my ($chan) = $self->roll_channel;
-    
+
     # Roll dice, all three.
     $d1 = int ((rand (6)) + 1);
     $d2 = int ((rand (6)) + 1);
     $d3 = int ((rand (6)) + 1);
     $total = $d1 + $d2;
-    
+
     if ($d1 == $d2 && $d2 == $d3 && ($d1 == 1 || $d1 == 6)) {
         if ($d1 == 6) {
             $client->public ($chan, "$user rolled Diabolical!  666!");
@@ -78,31 +78,30 @@ sub do_roll {
 ############################################################################
 
 # Performs any functions that need to be done once the object has been
-#  attached to a Calvin::Client.  
+#  attached to a Calvin::Client.
 sub startup {
     my $self = shift;
     srand ($$ ^ time);
 }
 
-
 # Defines the channel that rolls will be sent to.
 sub roll_channel {
     my $self = shift;
-    if (@_) { $self->{ROLL_CHANNEL} = shift }
+    if (@_ && defined $_[0]) { $self->{ROLL_CHANNEL} = shift }
     return $self->{ROLL_CHANNEL};
 }
 
-# Defines the channel that rolls will be sent to.
+# Sets a roll modifier for the GM.
 sub gm_modifier {
     my $self = shift;
-    if (@_) { $self->{GM_MODIFIER} = shift }
+    if (@_ && defined $_[0]) { $self->{GM_MODIFIER} = shift }
     return $self->{GM_MODIFIER};
 }
 
-# Defines the channel that rolls will be sent to.
+# Sets the GM password.
 sub passwd {
     my $self = shift;
-    if (@_) { $self->{PASSWD} = shift }
+    if (@_ && defined $_[0]) { $self->{PASSWD} = shift }
     return $self->{PASSWD};
 }
 
@@ -144,7 +143,7 @@ sub return_help {
             );
     return %help;
 }
- 
+
 
 sub handle_line {
     my $self = shift;
