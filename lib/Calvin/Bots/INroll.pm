@@ -15,7 +15,10 @@ require 5.002;
 use Calvin::Client;
 use Calvin::Manager;
 use Calvin::Parse qw (:constants);
-use Crypt;
+
+# Comment out for systems compiled without support for crypt(), if you
+#  have Crypt.pm.
+#use Crypt;
 
 use strict;
 
