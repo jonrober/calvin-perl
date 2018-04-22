@@ -39,3 +39,4 @@ lib/Calvin/Manager.pm
 lib/Calvin/Parse.pm
 MANIFEST			This list of files
 MANIFEST.SKIP
+t/00-syntax.t
