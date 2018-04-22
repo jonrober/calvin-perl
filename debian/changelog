@@ -9,6 +9,7 @@ libcalvin-perl (1.04-1) UNRELEASED; urgency=medium
   * Add all runtime dependencies to Build-Depends so that syntax tests
     will succeed during the build.
   * Add Depends on libhtml-entities-perl and libjson-perl.
+  * Update standards version to 4.1.4 (no changes required).
 
  -- Russ Allbery <rra@debian.org>  Sun, 22 Apr 2018 10:09:18 -0700
 
