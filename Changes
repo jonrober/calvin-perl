@@ -1,5 +1,10 @@
                      User-Visible Net::Calvin Changes
 
+Net::Calvin 1.05 (unreleased)
+
+    Fix some syntax errors in manual pages and change the markup to be
+    more standard.
+
 Net::Calvin 1.04 (2018-04-22)
 
     Switch to Module::Build for the build system.  As a side effect, this

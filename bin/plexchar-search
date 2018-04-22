@@ -340,22 +340,20 @@ plexchar-search - Perform search operations on a Plex character data file
 
 =head1 SYNOPSIS
 
-    plexchar-search character [search|list|usage|multiples]
+B<plexchar-search> character (search|list|usage|multiples)
 
 =head1 DESCRIPTION
 
-plexchar-search is a general script for listing and debugging data saved by
-plexchar-load to a data file of characters, their players, and the logs they
-were in.  It can perform general commands to help show what characters are in
-logs for general use, and drills down information used to track rare or
+B<plexchar-search> is a general script for listing and debugging data saved by
+B<plexchar-load> to a data file of characters, their players, and the logs
+they were in.  It can perform general commands to help show what characters
+are in logs for general use, and drills down information used to track rare or
 conflicting characters so that we can decide if they need to be added to an
 override file for plexchar-load to massage.
 
 =head1 COMMANDS
 
 =over 4
-
-plexchar-search character [search|list|usage|multiples]
 
 =item character list
 
@@ -368,7 +366,7 @@ List all characters and their players, with the number of logs and total lines
 across logs they have had.  This is used to help track information for any data
 fixes that might be needed.
 
-=item character search <character> [character] [...]
+=item character search I<character> [I<character> ...]
 
 List all logs and tags that a character or intersection of characters were in.
 
@@ -384,31 +382,31 @@ data fixes for those characters.
 
 =over 4
 
-=item --help|-h
+=item B<--help>, B<-h>
 
 Print usage and exit.
 
-=item --manual|--man
+=item B<--manual>, B<--man>
 
 Print this perldoc and exit.
 
-=item --intro_before <YYYY-MM-DD>
+=item B<--intro_before> I<YYYY-MM-DD>
 
 Show characters who first appeared after the given date.
 
-=item --intro_after <YYYY-MM-DD>
+=item B<--intro_after> I<YYYY-MM-DD>
 
 Show characters who first appeared after the given date.
 
-=item --lastseen <YYYY-MM-DD>
+=item B<--lastseen> I<YYYY-MM-DD>
 
 Show characters who have not been seen since the given date.
 
-=item --minimumlogs <N>
+=item B<--minimumlogs> I<N>
 
 Show characters who have appeared in at least the given number of logs.
 
-=item --player <name>
+=item B<--player> I<name>
 
 Show characters owned by the given player.
 
@@ -421,8 +419,7 @@ their personal logs as well.
 
 =head1 SEE ALSO
 
-plexchar-load
-plexchar-read
+L<plexchar-load(1)>, L<plexchar-read(1)>
 
 =head1 AUTHOR
 

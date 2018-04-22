@@ -559,7 +559,7 @@ logfind - Curses::UI based access reading logs by scene
 
 =head1 SYNOPSIS
 
-    logfind [start-date] [end-date]
+B<logfind> [I<start-date> [I<end-date>]]
 
 =head1 DESCRIPTION
 
@@ -574,22 +574,24 @@ for, and the ending date as today.
 
 =over 4
 
-=item --help|-h
+=item B<--help>, B<-h>
 
 Print usage and exit.
 
-=item --manual|--man
+=item B<--manual>, B<--man>
 
 Print this perldoc and exit.
 
-=item --grep <string>
+=item B<--grep> I<string>
 
 Show only those logs that contain a specific string in the tag.
 
-=item --open|s
+=item B<--open>, B<-s>
 
 Show only those logs that are still listed as having an open session, ignoring
 those that were ended and had the session removed.
+
+=back
 
 =head1 TODO
 
@@ -598,7 +600,7 @@ passed around, but not all.
 
 =head1 SEE ALSO
 
-logread
+L<logread(1)>
 
 =head1 AUTHOR
 
