@@ -231,25 +231,24 @@ sub startup {
     srand ($$ ^ time);
 }
 
-
 # Defines the channel that rolls will be sent to.
 sub roll_channel {
     my $self = shift;
-    if (@_) { $self->{ROLL_CHANNEL} = shift }
+    if (@_ && defined $_[0]) { $self->{ROLL_CHANNEL} = shift }
     return $self->{ROLL_CHANNEL};
 }
 
-# Defines the channel that rolls will be sent to.
+# Set a modifier for any GM rolls.
 sub gm_modifier {
     my $self = shift;
-    if (@_) { $self->{GM_MODIFIER} = shift }
+    if (@_ && defined $_[0]) { $self->{GM_MODIFIER} = shift }
     return $self->{GM_MODIFIER};
 }
 
-# Defines the channel that rolls will be sent to.
+# Defines the password for GM actions.
 sub passwd {
     my $self = shift;
-    if (@_) { $self->{PASSWD} = shift }
+    if (@_ && defined $_[0]) { $self->{PASSWD} = shift }
     return $self->{PASSWD};
 }
 

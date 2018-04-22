@@ -1,40 +1,111 @@
 {
-   "abstract" : "unknown",
+   "abstract" : "Bot and logging tools for Calvin chatservers",
    "author" : [
-      "unknown"
+      "Jon Robertson <jonrober@eyrie.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 7.24, CPAN::Meta::Converter version 2.150010",
+   "generated_by" : "Module::Build version 0.4224",
    "license" : [
-      "unknown"
+      "perl_5"
    ],
    "meta-spec" : {
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
       "version" : "2"
    },
    "name" : "Calvin",
-   "no_index" : {
-      "directory" : [
-         "t",
-         "inc"
-      ]
-   },
    "prereqs" : {
-      "build" : {
-         "requires" : {
-            "ExtUtils::MakeMaker" : "0"
-         }
-      },
       "configure" : {
          "requires" : {
-            "ExtUtils::MakeMaker" : "0"
+            "Module::Build" : "0.36"
          }
       },
       "runtime" : {
-         "requires" : {}
+         "requires" : {
+            "Config::Simple" : "0",
+            "Curses" : "0",
+            "Curses::UI" : "0",
+            "Date::Calc" : "0",
+            "Date::Manip" : "0",
+            "Date::Parse" : "0",
+            "File::HomeDir" : "0",
+            "Getopt::Long::Descriptive" : "0",
+            "HTML::Entities" : "0",
+            "Hash::Merge" : "0",
+            "JSON" : "0",
+            "Net::Remctl::Backend" : "0",
+            "Perl6::Slurp" : "0",
+            "YAML" : "0",
+            "perl" : "5.018"
+         }
+      }
+   },
+   "provides" : {
+      "Calvin::Bots::Cambot" : {
+         "file" : "lib/Calvin/Bots/Cambot.pm"
+      },
+      "Calvin::Bots::Characters" : {
+         "file" : "lib/Calvin/Bots/Characters.pm"
+      },
+      "Calvin::Bots::Descbot" : {
+         "file" : "lib/Calvin/Bots/Descbot.pm"
+      },
+      "Calvin::Bots::Fengroll" : {
+         "file" : "lib/Calvin/Bots/Fengroll.pm"
+      },
+      "Calvin::Bots::INroll" : {
+         "file" : "lib/Calvin/Bots/INroll.pm"
+      },
+      "Calvin::Bots::Nagbot" : {
+         "file" : "lib/Calvin/Bots/Nagbot.pm"
+      },
+      "Calvin::Bots::Passthrough" : {
+         "file" : "lib/Calvin/Bots/Passthrough.pm"
+      },
+      "Calvin::Bots::Standard" : {
+         "file" : "lib/Calvin/Bots/Standard.pm"
+      },
+      "Calvin::Bots::URL_Store" : {
+         "file" : "lib/Calvin/Bots/URL_Store.pm"
+      },
+      "Calvin::Client" : {
+         "file" : "lib/Calvin/Client.pm",
+         "version" : "0.08"
+      },
+      "Calvin::Config" : {
+         "file" : "lib/Calvin/Config.pm"
+      },
+      "Calvin::Logs" : {
+         "file" : "lib/Calvin/Logs.pm"
+      },
+      "Calvin::Logs::Characters" : {
+         "file" : "lib/Calvin/Logs/Characters.pm"
+      },
+      "Calvin::Logs::Characters::Tag" : {
+         "file" : "lib/Calvin/Logs/Characters/Tag.pm"
+      },
+      "Calvin::Logs::Logread" : {
+         "file" : "lib/Calvin/Logs/Logread.pm"
+      },
+      "Calvin::Logs::Misc" : {
+         "file" : "lib/Calvin/Logs/Misc.pm"
+      },
+      "Calvin::Logs::Split" : {
+         "file" : "lib/Calvin/Logs/Split.pm"
+      },
+      "Calvin::Manager" : {
+         "file" : "lib/Calvin/Manager.pm"
+      },
+      "Calvin::Parse" : {
+         "file" : "lib/Calvin/Parse.pm",
+         "version" : "0.04"
       }
    },
    "release_status" : "stable",
-   "version" : "1.03",
+   "resources" : {
+      "license" : [
+         "http://dev.perl.org/licenses/"
+      ]
+   },
+   "version" : "1.04",
    "x_serialization_backend" : "JSON::PP version 2.27400_02"
 }

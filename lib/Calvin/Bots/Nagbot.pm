@@ -283,7 +283,6 @@ sub alarm_message {
     } else { $client->msg ($user, "Error in !alarm: \"$timeset\" not valid.") }
 }
 
-
 # Lists all active messages for a user.
 sub list_message {
     my $self = shift;
@@ -296,11 +295,9 @@ sub list_message {
     $client->msg ($user, "Done listing");
 }
 
-
 ############################################################################
 # Main routine
 ############################################################################
-
 
 sub new {
     my $class = shift;
@@ -320,7 +317,7 @@ sub new {
 #  message goes through, so this isn't as bad as it might sound.
 sub maxbad {
     my $self = shift;
-    if (@_) { $self->{MAXBAD} = shift }
+    if (@_ && defined $_[0]) { $self->{MAXBAD} = shift }
     return $self->{MAXBAD};
 }
 
