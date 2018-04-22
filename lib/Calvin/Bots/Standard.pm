@@ -29,9 +29,9 @@ sub leave_cmd {
     my ($client, $user, $channel, @args) = @_;
     my ($arg, $force);
     $force = 0;
-    
+
     # Reads in any arguments sent to the bot.  "-force" forces a join,
-    #  even if the bot thinks it is already on the requested channel. 
+    #  even if the bot thinks it is already on the requested channel.
     foreach $arg (@args) {
         if (($arg =~ /^-force$/i) || ($arg =~ /^-f$/i)) { $force = 1 }
     }
@@ -63,7 +63,7 @@ sub join_cmd {
     $force = 0;
 
     # Reads in any arguments sent to the bot.  "-force" forces a join,
-    #  even if the bot thinks it is already on the requested channel. 
+    #  even if the bot thinks it is already on the requested channel.
     foreach $arg (@args) {
         if (($arg =~ /^-force$/i) || ($arg =~ /^-f$/i)) { $force = 1 }
     }
@@ -189,7 +189,7 @@ sub high_channel {
 }
 
 # When sent a channel and tag, sets that channel to indicate the
-#  channel has been joined.  When just sent a channel, returns one or 
+#  channel has been joined.  When just sent a channel, returns one or
 #  undef.
 sub on_channel {
     my $self = shift;
@@ -211,7 +211,7 @@ sub off_channel {
 #  of the ping command.
 sub ping_ok {
     my $self = shift;
-    if (@_) { $self->{Ping_OK} = shift }
+    if (@_ && defined $_[0]) { $self->{Ping_OK} = shift }
     return $self->{Ping_OK};
 }
 
@@ -219,7 +219,7 @@ sub ping_ok {
 #  of the renick command.
 sub renick_ok {
     my $self = shift;
-    if (@_) { $self->{Renick_OK} = shift }
+    if (@_ && defined $_[0]) { $self->{Renick_OK} = shift }
     return $self->{Renick_OK};
 }
 
@@ -227,7 +227,7 @@ sub renick_ok {
 #  of the quit command.
 sub quit_ok {
     my $self = shift;
-    if (@_) { $self->{Quit_OK} = shift }
+    if (@_ && defined $_[0]) { $self->{Quit_OK} = shift }
     return $self->{Quit_OK};
 }
 
@@ -235,7 +235,7 @@ sub quit_ok {
 #  of the say command.
 sub say_ok {
     my $self = shift;
-    if (@_) { $self->{Say_OK} = shift }
+    if (@_ && defined $_[0]) { $self->{Say_OK} = shift }
     return $self->{Say_OK};
 }
 
@@ -244,7 +244,7 @@ sub say_ok {
 #  state of the re-- er, time command.
 sub time_ok {
     my $self = shift;
-    if (@_) { $self->{Time_OK} = shift }
+    if (@_ && defined $_[0]) { $self->{Time_OK} = shift }
     return $self->{Time_OK};
 }
 
@@ -317,7 +317,7 @@ sub handle_line {
              ($result{'s1'} =~ /^Exiting( |:)/)) {
 
         $manager->kill_client($client);
-        
+
         #        my $i = 0;
         #        my $fairness = $manager->{client};
         #        foreach (@{$manager->{clients}}) {
@@ -336,7 +336,7 @@ sub handle_line {
         #            $manager->{client}--;
         #        } elsif ($i == $fairness && $i == $#{$manager->{clients}}) {
         #            $manager->{client}--;
-        #        }            
+        #        }
         #        splice(@{$manager->{clients}}, $i, 1);
         #        splice(@{$manager->{dead}},    $i, 1);
 
@@ -347,13 +347,13 @@ sub handle_line {
             exit(0);
         }
         return 1;
-        
+
     } elsif (($result{'code'} == C_WHIS) && (!$result{'on_channel'}) &&
              ($result{'s1'} !~ /^- /)) {
 
         my $message = $result{'s1'};
         my $user    = $result{'name'};
-        
+
         # Parse the message sent us.
         $message =~ s/\t/ /;
         $message =~ s/\s+$//;

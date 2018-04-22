@@ -1,5 +1,21 @@
                      User-Visible Net::Calvin Changes
 
+Net::Calvin 1.04 (2018-04-22)
+
+    Switch to Module::Build for the build system.  As a side effect, this
+    will install the manual pages for the things that have POD
+    documentation.
+
+    Fix Bots to ignore undef given to the setters.  The config loading was
+    wiping out defaults when config options were missing, because config
+    loading was then calling setters with undef.
+
+    Fix syntax errors in URL_Store.pm (not currently used).
+
+    Remove unnecessary use of Crypt in Calvin::Bots::INroll.
+
+    Add a basic test that all modules pass syntax checks.
+
 Net::Calvin 1.03 (2018-03-17)
 
     Added perldoc for logread, logfind, and loggrep.

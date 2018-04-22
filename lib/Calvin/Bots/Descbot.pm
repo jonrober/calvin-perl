@@ -257,7 +257,7 @@ sub new {
     bless ($self, $class);
     $self->descroot ('/srv/calvin/descs/');
     $self->localhost ('eyrie.org');
-    
+
     return $self;
 }
 
@@ -265,14 +265,14 @@ sub new {
 #  directory.
 sub descroot {
     my $self = shift;
-    if (@_) { $self->{DESCROOT} = shift }
+    if (@_ && defined $_[0]) { $self->{DESCROOT} = shift }
     return $self->{DESCROOT};
 }
 
 # Sets the localhost if one is sent, returns the localhost.
 sub localhost {
     my $self = shift;
-    if (@_) { $self->{LOCALHOST} = shift }
+    if (@_ && defined $_[0]) { $self->{LOCALHOST} = shift }
     return $self->{LOCALHOST};
 }
 
@@ -327,7 +327,7 @@ sub handle_line {
         $client->msg ($result{'name'}, "Parse error in \"$message\".");
         return 1;
     }
-    
+
     if ($prefix eq 'desc' && defined $command) {
         # Hand off to the appropriate sub based on the command.
         if      ($command eq '!list')    {

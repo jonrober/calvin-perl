@@ -1,6 +1,7 @@
-/blib/
+/Build
 /Calvin*.gz
 /MANIFEST.bak
 /MYMETA.*
-/Makefile
+/_build/
+/blib/
 /pm_to_blib
