@@ -3,6 +3,7 @@ Section: perl
 Priority: optional
 Build-Depends:
  debhelper (>= 11),
+ libmodule-build-perl,
  perl,
 Maintainer: Jon Robertson <jonrober@eyrie.org>
 Uploaders:
