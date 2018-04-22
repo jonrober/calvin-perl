@@ -37,7 +37,7 @@ my $build = Module::Build->new(
     },
 
     # Other package relationships.
-    configure_requires => { 'Module::Build'       => 0.36 },
+    configure_requires => { 'Module::Build' => 0.36 },
     requires           => {
         'Config::Simple'            => 0,
         'Curses'                    => 0,
