@@ -6,6 +6,9 @@ libcalvin-perl (1.04-1) UNRELEASED; urgency=medium
       config loading was wiping out defaults.
     - Fix syntax errors in URL_Store.pm (not currently used).
     - Remove unnecessary use of Crypt.
+  * Add all runtime dependencies to Build-Depends so that syntax tests
+    will succeed during the build.
+  * Add Depends on libhtml-entities-perl and libjson-perl.
 
  -- Russ Allbery <rra@debian.org>  Sun, 22 Apr 2018 10:09:18 -0700
 
