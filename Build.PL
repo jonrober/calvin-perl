@@ -19,7 +19,7 @@ use Module::Build;
 my $build = Module::Build->new(
     dist_abstract        => 'Bot and logging tools for Calvin chatservers',
     dist_author          => 'Jon Robertson <jonrober@eyrie.org>',
-    dist_version         => '1.03',
+    dist_version         => '1.04',
     license              => 'perl',
     module_name          => 'Calvin',
     recursive_test_files => 1,

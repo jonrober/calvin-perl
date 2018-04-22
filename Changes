@@ -1,6 +1,6 @@
                      User-Visible Net::Calvin Changes
 
-Net::Calvin 1.04 (unreleased)
+Net::Calvin 1.04 (2018-04-22)
 
     Switch to Module::Build for the build system.  As a side effect, this
     will install the manual pages for the things that have POD
