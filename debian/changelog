@@ -1,3 +1,14 @@
+libcalvin-perl (1.04-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+    - Install man pages for things with POD documentation.
+    - Fix bots to ignore undef given to setters, fixing an issue where
+      config loading was wiping out defaults.
+    - Fix syntax errors in URL_Store.pm (not currently used).
+    - Remove unnecessary use of Crypt.
+
+ -- Russ Allbery <rra@debian.org>  Sun, 22 Apr 2018 10:09:18 -0700
+
 libcalvin-perl (1.03-1) unstable; urgency=medium
 
   [ Jon Robertson ]
