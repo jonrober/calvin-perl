@@ -651,6 +651,9 @@ sub session_create_cmd {
 	} else {
 
 		# If there was a problem with the data, tell the user about it.
+		$channel ||= '';
+		$name ||= '';
+		$tag ||= '';
 		$client->msg ($user, "There was a problem adding session '$name' on on channel '$channel' with tag '$tag'.");
 	}
 
