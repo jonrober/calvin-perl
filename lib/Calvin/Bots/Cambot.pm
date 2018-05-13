@@ -57,13 +57,19 @@ sub parse_session_list {
 
     # Parse the arguments.  Anything not an option should be thrown away
     # normally, but if we didn't succeed it can be used for error message.
-    my ($success, $remaining_args) = GetOptionsFromString($request, \%args,
-                                                          @options);
+    # Suppress reporting of errors, since this is some sort of user problem
+    # and will be reported directly to the user.
+    my ($success, $remaining_args);
+    {
+        local $SIG{__WARN__} = sub {};
+        ($success, $remaining_args)
+          = GetOptionsFromString($request, \%args, @options);
+    }
     if (! $success) {
         my $error = "Problem parsing list request at '" .
                     join (' ', @{$remaining_args}) . "'";
         $client->msg ($user, $error);
-        return undef;
+        return;
     }
 
     # Now do a little jiggering of the values for mutually exclusive defaults.
